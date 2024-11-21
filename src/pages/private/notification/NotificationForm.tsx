@@ -177,12 +177,11 @@ const NotificationCreate: React.FC = () => {
 
       console.log("Creating notification campaign:", payload);
 
-      const response = await fetch("https://vicsys-test-view.runasp.net/send-notification", {
+      const response = await fetch("https://localhost:5000/send-notification", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        
         body: JSON.stringify(payload),
       });
 
