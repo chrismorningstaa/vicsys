@@ -2,27 +2,33 @@ import IChild from "../../interfaces/firebase/IChild";
 import { IChildAttendee, IEvent } from "../../interfaces/firebase/IEvent";
 import { IMyPuchaseEvent } from "../../interfaces/firebase/INonTechUser";
 import eventRepository from "../repositories/eventRepository";
+import nonTechUserRepository from "../repositories/nonTechUserRepository";
 import userRepository from "../repositories/userRepository";
 
 export default function bookingService() {
   const _userRepository = userRepository();
+  const _nonTechUserRepository = nonTechUserRepository();
   const _eventRepository = eventRepository();
 
   const bookEventPurchases = async (
     eventId: string,
     userId: string,
+    nonTectUserId: string,
     myPurchases: IMyPuchaseEvent[]
   ) => {
     const event = await _eventRepository.getById(eventId);
-    const user = await _userRepository.getById(userId);
+    let user;
+    if (userId) user = await _userRepository.getById(userId);
+    if (nonTectUserId)
+      user = await _nonTechUserRepository.getById(nonTectUserId);
     if (!event || !user) throw new Error("Event or user not found");
 
-    const updatedTicketCategories = event.ticketCategories.map((t) => ({
-      ...t,
-      ticketRemaining:
-        (t.ticketRemaining ?? 0) -
-        myPurchases.filter((m) => m.ticketName == t.ticketName).length,
-    }));
+    // const updatedTicketCategories = event.ticketCategories.map((t) => ({
+    //   ...t,
+    //   ticketRemaining:
+    //     (t.ticketRemaining ?? 0) -
+    //     myPurchases.filter((m) => m.ticketName == t.ticketName).length,
+    // }));
 
     const udpatedAttendees = () => {
       if (event.attendees.some((u) => u.userId == userId) && event.attendees)
@@ -34,17 +40,26 @@ export default function bookingService() {
 
     await _eventRepository.update(event?.id || "", {
       ...event,
-      ticketCategories: updatedTicketCategories,
+      ticketCategories: event.ticketCategories,
       attendees: udpatedAttendees(),
     });
 
-    return await _userRepository.update(userId, {
+    if (userId)
+      return await _userRepository.update(userId, {
+        ...user,
+        myPurchaseEvents: user.myPurchaseEvents
+          ? [...user.myPurchaseEvents, ...myPurchases]
+          : [...myPurchases],
+      });
+
+    return await _nonTechUserRepository.update(nonTectUserId, {
       ...user,
       myPurchaseEvents: user.myPurchaseEvents
         ? [...user.myPurchaseEvents, ...myPurchases]
         : [...myPurchases],
     });
   };
+
   const bookChildren = async (eventId: string, newChildren: IChild[]) => {
     const event = await _eventRepository.getById(eventId);
     if (!event) throw new Error("Event not found");

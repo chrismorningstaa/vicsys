@@ -99,6 +99,7 @@ export default function BookingModal(props: {
     await _bookingService.bookEventPurchases(
       selectedEvent.id,
       user.uid,
+      "",
       updatedmyPurchase
     );
     refetch();

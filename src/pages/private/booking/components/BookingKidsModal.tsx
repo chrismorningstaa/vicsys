@@ -90,6 +90,8 @@ export default function BookingKidsModal(props: {
           status: TicketStatus.Pending,
           ticketName: "Kids Ticket",
           gcashRefNo: gcashRefNo,
+          startTime: selectedEvent.startTime,
+          endTime: selectedEvent.endTime,
         };
 
         const updatedUser: INonTechUser = {
@@ -115,6 +117,8 @@ export default function BookingKidsModal(props: {
           status: TicketStatus.Pending,
           ticketName: "Kids Ticket",
           gcashRefNo: gcashRefNo,
+          startTime: selectedEvent.startTime,
+          endTime: selectedEvent.endTime,
         };
 
         const updatedUser = {
