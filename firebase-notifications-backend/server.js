@@ -6,23 +6,23 @@ const fetch = require('node-fetch');
 const projectId = 'vicsys-a6039';
 const { getFirestore } = require('firebase-admin/firestore');
 
-const {Storage} = require('@google-cloud/storage');
+// const {Storage} = require('@google-cloud/storage');
 
-async function authenticateImplicitWithAdc() {
-  const storage = new Storage({
-    projectId,
-  });
-  const [buckets] = await storage.getBuckets();
-  console.log('Buckets:');
+// async function authenticateImplicitWithAdc() {
+//   const storage = new Storage({
+//     projectId,
+//   });
+//   const [buckets] = await storage.getBuckets();
+//   console.log('Buckets:');
 
-  for (const bucket of buckets) {
-    console.log(`- ${bucket.name}`);
-  }
+//   for (const bucket of buckets) {
+//     console.log(`- ${bucket.name}`);
+//   }
 
-  console.log('Listed all storage buckets.');
-}
+//   console.log('Listed all storage buckets.');
+// }
 
-authenticateImplicitWithAdc();
+// authenticateImplicitWithAdc();
 
 
 const serviceAccount = require("./vicsys-a6039-firebase-adminsdk-cl5si-2b9da741f2.json");
