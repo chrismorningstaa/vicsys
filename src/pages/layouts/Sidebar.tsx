@@ -8,7 +8,6 @@ import {
   HomeOutlined,
   ShoppingCartOutlined,
   FolderOpenOutlined,
-  NotificationOutlined,
   EyeOutlined,
   BellOutlined,
 } from "@ant-design/icons";
