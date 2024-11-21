@@ -1,52 +1,76 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Steps, Button, Input, Select, DatePicker, Alert, Space, Tag } from 'antd';
-import { LeftOutlined, RightOutlined, SendOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  Steps,
+  Button,
+  Input,
+  Select,
+  DatePicker,
+  Alert,
+  Space,
+  Tag,
+  Modal,
+  Typography,
+  Checkbox,
+} from "antd";
+import { LeftOutlined, RightOutlined, SendOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import { messaging, requestForToken } from "../../../firebase/firebaseConfig";
 import { isSupported } from "firebase/messaging";
 
 const { Step } = Steps;
 const { TextArea } = Input;
+const { Text } = Typography;
+const dateNow = new Date();
 
 interface NotificationPayload {
   title: string;
   body: string;
   token: string;
-  targetType: 'all' | 'specific' | 'topic';
+  targetType: "all" | "specific" | "topic";
   targetValue: string;
-  scheduledTime: string | null;
+  scheduledTime: Date | "";
   campaignId?: string;
 }
 
 const NotificationCreate: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [formData, setFormData] = useState<NotificationPayload>({
-    title: '',
-    body: '',
-    token: '',
-    targetType: 'all',
-    targetValue: '',
-    scheduledTime: null
+    title: "",
+    body: "",
+    token: "",
+    targetType: "all",
+    targetValue: "",
+    scheduledTime: new Date(),
   });
+  const [previewModal, setPreviewModal] = useState<{
+    visible: boolean;
+    notification: NotificationPayload | null;
+  }>({
+    visible: false,
+    notification: null
+  });
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
-  const [isMessagingSupported, setIsMessagingSupported] = useState<boolean>(true);
+  const [isMessagingSupported, setIsMessagingSupported] =
+    useState<boolean>(true);
 
   useEffect(() => {
     const checkMessagingSupport = async () => {
       try {
         const isFirebaseMessagingSupported = await isSupported();
         setIsMessagingSupported(isFirebaseMessagingSupported);
-        
+
         if (isFirebaseMessagingSupported && messaging) {
           const permission = await Notification.requestPermission();
           if (permission === "granted") {
             const token = await requestForToken();
             if (token) {
-              setFormData(prev => ({ ...prev, token }));
-              console.log('FCM Token:', token);
+              setFormData((prev) => ({ ...prev, token }));
+              console.log("FCM Token:", token);
             }
           }
         }
@@ -62,21 +86,34 @@ const NotificationCreate: React.FC = () => {
 
   const steps = [
     {
-      title: 'Notification',
-      description: 'Set message content',
+      title: "Notification",
+      description: "Set message content",
     },
     {
-      title: 'Target',
-      description: 'Choose recipients',
+      title: "Target",
+      description: "Choose recipients",
     },
     {
-      title: 'Scheduling',
-      description: 'Set delivery time',
-    }
+      title: "Scheduling",
+      description: "Set delivery time",
+    },
   ];
 
+  const formatTarget = (targetType: string, targetValue: string) => {
+    switch (targetType) {
+      case 'all':
+        return <Tag color="blue">All Users</Tag>;
+      case 'topic':
+        return <Tag color="green">Topic: {targetValue}</Tag>;
+      case 'specific':
+        return <Tag color="orange">Specific Device</Tag>;
+      default:
+        return <Tag color="default">Unknown</Tag>;
+    }
+  };
+
   const handleInputChange = (field: keyof NotificationPayload, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     setError(null);
     setSuccess(false);
   };
@@ -85,17 +122,20 @@ const NotificationCreate: React.FC = () => {
     switch (currentStep) {
       case 0:
         if (!formData.title.trim() || !formData.body.trim()) {
-          setError('Title and body are required');
+          setError("Title and body are required");
           return false;
         }
         break;
       case 1:
-        if (formData.targetType === 'specific' && !formData.targetValue.trim()) {
-          setError('Please specify device tokens');
+        if (
+          formData.targetType === "specific" &&
+          !formData.targetValue.trim()
+        ) {
+          setError("Please specify device tokens");
           return false;
         }
-        if (formData.targetType === 'topic' && !formData.targetValue.trim()) {
-          setError('Please specify topic name');
+        if (formData.targetType === "topic" && !formData.targetValue.trim()) {
+          setError("Please specify topic name");
           return false;
         }
         break;
@@ -108,62 +148,71 @@ const NotificationCreate: React.FC = () => {
 
   const handleNext = () => {
     if (validateStep()) {
-      setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+      setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
     }
   };
 
   const handleBack = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 0));
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
   const handleSend = async () => {
     if (!validateStep()) return;
-  
+
     setLoading(true);
     setError(null);
-  
+
     try {
       const payload = {
         title: formData.title,
         body: formData.body,
         targetType: formData.targetType,
-        ...(formData.targetType !== 'all' && { targetValue: formData.targetValue }),
-        ...(formData.scheduledTime && { scheduledTime: formData.scheduledTime })
+        ...(formData.targetType !== "all" && {
+          targetValue: formData.targetValue,
+        }),
+        ...(formData.scheduledTime && {
+          scheduledTime: formData.scheduledTime,
+        }),
       };
-  
-      console.log('Creating notification campaign:', payload);
-  
-      const response = await fetch('http://localhost:5000/send-notification', {
-        method: 'POST',
+
+      console.log("Creating notification campaign:", payload);
+
+      const response = await fetch("https://vicsys-test-view.runasp.net/send-notification", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload)
+        
+        body: JSON.stringify(payload),
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
-        throw new Error(data.details || data.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          data.details || data.error || `HTTP error! status: ${response.status}`
+        );
       }
-  
-      console.log('Campaign created:', data);
+
+      console.log("Campaign created:", data);
       setSuccess(true);
       setCampaignId(data.campaignId);
-  
+
       // Reset form after successful submission
       setFormData({
-        title: '',
-        body: '',
+        title: "",
+        body: "",
         token: formData.token, // Keep the token
-        targetType: 'all',
-        targetValue: '',
-        scheduledTime: null
+        targetType: "all",
+        targetValue: "",
+        scheduledTime: new Date(),
       });
       setCurrentStep(0);
     } catch (err) {
-      console.error('Campaign creation error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create campaign');
+      console.error("Campaign creation error:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to create campaign"
+      );
     } finally {
       setLoading(false);
     }
@@ -181,16 +230,16 @@ const NotificationCreate: React.FC = () => {
   }
 
   const NotificationStep = () => (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space direction="vertical" size="large" style={{ width: "100%" }}>
       <Input
         placeholder="Notification Title"
         value={formData.title}
-        onChange={(e) => handleInputChange('title', e.target.value)}
+        onChange={(e) => handleInputChange("title", e.target.value)}
       />
       <TextArea
         placeholder="Notification Body"
         value={formData.body}
-        onChange={(e) => handleInputChange('body', e.target.value)}
+        onChange={(e) => handleInputChange("body", e.target.value)}
         rows={4}
       />
       <Input.TextArea
@@ -198,32 +247,32 @@ const NotificationCreate: React.FC = () => {
         readOnly
         rows={2}
         placeholder="Device Registration Token"
-        style={{ display: 'none' }}
+        style={{ display: "none" }}
       />
     </Space>
   );
 
   const TargetStep = () => (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space direction="vertical" size="large" style={{ width: "100%" }}>
       <Select
-        style={{ width: '100%' }}
+        style={{ width: "100%" }}
         value={formData.targetType}
-        onChange={(value) => handleInputChange('targetType', value)}
+        onChange={(value) => handleInputChange("targetType", value)}
         options={[
-          { label: 'All Platforms', value: 'all' },
-          { label: 'Topic Subscribers', value: 'topic' },
-          { label: 'Specific Device', value: 'specific' }
+          { label: "All Platforms", value: "all" },
+          { label: "Topic Subscribers", value: "topic" },
+          { label: "Specific Device", value: "specific" },
         ]}
       />
-      {formData.targetType !== 'all' && (
+      {formData.targetType !== "all" && (
         <TextArea
           placeholder={
-            formData.targetType === 'specific' 
-              ? 'Enter device token' 
+            formData.targetType === "specific"
+              ? "Enter device token"
               : 'Enter topic name (e.g., "android", "ios", or "web")'
           }
           value={formData.targetValue}
-          onChange={(e) => handleInputChange('targetValue', e.target.value)}
+          onChange={(e) => handleInputChange("targetValue", e.target.value)}
           rows={4}
         />
       )}
@@ -231,14 +280,16 @@ const NotificationCreate: React.FC = () => {
   );
 
   const SchedulingStep = () => (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space direction="vertical" size="large" style={{ width: "100%" }}>
       <DatePicker
         showTime
-        style={{ width: '100%' }}
-        placeholder="Select Date and Time"
-        onChange={(date) => handleInputChange('scheduledTime', date ? date.toISOString() : null)}
+        style={{ width: "100%" }}
+        placeholder={dateNow.toString()}
+        onChange={(date) =>
+          handleInputChange("scheduledTime", date ? date.toISOString() : null)
+        }
         disabledDate={(current) => {
-          return current && current < dayjs().startOf('day');
+          return current && current < dayjs().startOf("day");
         }}
       />
     </Space>
@@ -258,16 +309,14 @@ const NotificationCreate: React.FC = () => {
   };
 
   return (
-    <Card style={{ maxWidth: 800, margin: '0 auto' }}>
+    <Card style={{ maxWidth: 800, margin: "0 auto" }}>
       <Steps current={currentStep} style={{ marginBottom: 24 }}>
         {steps.map((step, index) => (
           <Step key={index} title={step.title} description={step.description} />
         ))}
       </Steps>
 
-      <div style={{ marginBottom: 24 }}>
-        {getCurrentStepContent()}
-      </div>
+      <div style={{ marginBottom: 24 }}>{getCurrentStepContent()}</div>
 
       {error && (
         <Alert
@@ -298,20 +347,32 @@ const NotificationCreate: React.FC = () => {
         />
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Button
-          onClick={handleBack}
-          disabled={currentStep === 0}
-          icon={<LeftOutlined />}
-        >
-          Back
-        </Button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Space>
+          <Button
+            onClick={handleBack}
+            disabled={currentStep === 0}
+            icon={<LeftOutlined />}
+          >
+            Back
+          </Button>
+
+          <Button
+            onClick={() => setPreviewModal({ visible: true, notification: formData })}
+            disabled={currentStep < 2} 
+          >
+            Preview
+          </Button>
+        </Space>
 
         {currentStep < steps.length - 1 ? (
-          <Button 
-            type="primary" 
-            onClick={handleNext}
-          >
+          <Button type="primary" onClick={handleNext}>
             Next <RightOutlined />
           </Button>
         ) : (
@@ -325,6 +386,44 @@ const NotificationCreate: React.FC = () => {
           </Button>
         )}
       </div>
+      <Modal
+        title="Notification Preview"
+        open={previewModal.visible}
+        onCancel={() => setPreviewModal({ visible: false, notification: null })}
+        footer={[
+          <Button 
+            key="close" 
+            onClick={() => setPreviewModal({ visible: false, notification: null })}
+          >
+            Close
+          </Button>
+        ]}
+      >
+        {previewModal.notification && (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Card>
+              <Space direction="vertical">
+                <Text strong>Title:</Text>
+                <Text>{previewModal.notification.title}</Text>
+                
+                <Text strong>Content:</Text>
+                <Text>{previewModal.notification.body}</Text>
+                
+                <Text strong>Target:</Text>
+                {formatTarget(
+                  previewModal.notification.targetType, 
+                  previewModal.notification.targetValue
+                )}
+                
+                <Text strong>Scheduled At:</Text>
+                <Text>
+                  {dayjs(previewModal.notification.scheduledTime).format('YYYY-MM-DD HH:mm:ss')}
+                </Text>
+              </Space>
+            </Card>
+          </Space>
+        )}
+      </Modal>
     </Card>
   );
 };
