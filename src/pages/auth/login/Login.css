@@ -1,0 +1,52 @@
+.bd-placeholder-img {
+    font-size: 1.125rem;
+    text-anchor: middle;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+
+  @media (min-width: 768px) {
+    .bd-placeholder-img-lg {
+      font-size: 3.5rem;
+    }
+  }
+
+  .form-signin {
+    max-width: 330px;
+    padding: 15px;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100vh;
+  }
+  .form-check {
+    margin-bottom: 10px;
+  }
+
+
+  .dropdown-spacing {
+    margin-bottom: 20px;
+  }
+
+  .fixed-bottom-right {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+  }
+
+  .form-select option {
+    display: flex;
+    align-items: center;
+  }
+
+  .form-select option svg {
+    margin-right: 8px;
+  }
+
+  .forgot-password {
+    text-align: right;
+    margin-bottom: 15px;
+  }
