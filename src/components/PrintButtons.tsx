@@ -1,5 +1,5 @@
-import { Button } from 'antd';
-import { PrinterOutlined } from '@ant-design/icons';
+import { Button } from "antd";
+import { PrinterOutlined } from "@ant-design/icons";
 
 interface PrintButtonProps {
   tableId: string;
@@ -8,14 +8,14 @@ interface PrintButtonProps {
 
 const PrintButton: React.FC<PrintButtonProps> = ({ tableId, title }) => {
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
     const tableElement = document.getElementById(tableId);
     if (!tableElement) return;
 
     const tableHTML = tableElement.outerHTML;
-    
+
     printWindow.document.write(`
       <html>
         <head>
@@ -48,11 +48,7 @@ const PrintButton: React.FC<PrintButtonProps> = ({ tableId, title }) => {
   };
 
   return (
-    <Button 
-      icon={<PrinterOutlined />}
-      onClick={handlePrint}
-      className="ml-2"
-    >
+    <Button icon={<PrinterOutlined />} onClick={handlePrint} className="ml-2">
       Print
     </Button>
   );

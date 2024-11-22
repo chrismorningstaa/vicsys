@@ -1,15 +1,21 @@
 import { arrayUnion, doc, getFirestore, updateDoc } from "firebase/firestore";
-import { IEvent } from "../../interfaces/firebase/IEvent";
+import { EventChildStatus, IEvent } from "../../interfaces/firebase/IEvent";
 import genericRepository from "./genericRepository";
 import userRepository from "./userRepository";
 import { IUser } from "../../interfaces/firebase/IUser";
 import nonTechUserRepository from "./nonTechUserRepository";
 import { TicketStatus } from "../../interfaces/firebase/ITicket";
 import { IMyPuchaseEvent } from "../../interfaces/firebase/INonTechUser";
+import childrenRepository from "./childrenRepository";
+import {
+  IChildWithParent,
+  IChildWithParentAndStatus,
+} from "../../interfaces/firebase/IChild";
 
 export default function eventRepository() {
   const _genericRepository = genericRepository<IEvent>("events");
   const _userRepository = userRepository();
+  const _childrenRepository = childrenRepository();
   const _nonTechUserRepository = nonTechUserRepository();
   const getAll = async () => {
     const events = await _genericRepository.getAll();
@@ -49,6 +55,49 @@ export default function eventRepository() {
       }));
     return filtered;
   };
+
+  const getChildAttendeesByEventId = async (
+    id: string
+  ): Promise<IChildWithParentAndStatus[]> => {
+    const event = await _genericRepository.getById(id);
+    if (!event) throw new Error("Event not found");
+
+    const newChildren: IChildWithParent[] = await Promise.all(
+      event.childrenAttendees.map(async (c) => {
+        const child = await _childrenRepository.getById(c.childId);
+        if (!child?.userId) throw new Error("Child's user id not found");
+
+        let parent =
+          (await _userRepository.getById(child.userId)) ||
+          (await _nonTechUserRepository.getById(child.userId));
+
+        return { ...child, parentName: parent?.name, status: c.status };
+      })
+    );
+
+    return newChildren;
+  };
+  const updateChildAttendeeStatusEventById = async (
+    eventId: string,
+    newStatus: EventChildStatus,
+    childId: string
+  ) => {
+    const event = await _genericRepository.getById(eventId);
+    if (!event) throw new Error("Event not found");
+
+    const updatedChildrenAttendees = event.childrenAttendees.map((c) => {
+      if (c.childId == childId)
+        return {
+          childId,
+          status: newStatus,
+        };
+      return c;
+    });
+    await _genericRepository.update(eventId, {
+      ...event,
+      childrenAttendees: updatedChildrenAttendees,
+    });
+  };
   const updateTicketRemainingAndSold = async (
     userId: string,
     myPurchase: IMyPuchaseEvent
@@ -73,9 +122,6 @@ export default function eventRepository() {
       if (t.ticketName == myPurchase.ticketName)
         return {
           ...t,
-          ticketRemaining:
-            (t.ticketRemaining ?? 0) +
-            handleTicketRemaining(userPurchased.status, myPurchase.status),
           ticketSold:
             t.ticketSold +
             handleTicketSold(userPurchased.status, myPurchase.status),
@@ -88,40 +134,30 @@ export default function eventRepository() {
     });
   };
 
-  const handleTicketRemaining = (
-    currentStatus: TicketStatus,
-    newStatus: TicketStatus
-  ) => {
-    if (
-      currentStatus == TicketStatus.Pending &&
-      newStatus != TicketStatus.Pending
-    )
-      return -1;
-    if (
-      currentStatus != TicketStatus.Pending &&
-      newStatus != TicketStatus.Pending
-    )
-      return 0;
-    else return +1;
-  };
   const handleTicketSold = (
     currentStatus: TicketStatus,
     newStatus: TicketStatus
   ) => {
     if (
-      currentStatus == TicketStatus.Pending &&
-      newStatus != TicketStatus.Pending
+      currentStatus != TicketStatus.Pending &&
+      currentStatus != TicketStatus.Declined &&
+      (newStatus == TicketStatus.Pending || newStatus == TicketStatus.Declined)
+    )
+      return -1;
+    if (
+      (currentStatus == TicketStatus.Pending ||
+        currentStatus == TicketStatus.Declined) &&
+      (newStatus == TicketStatus.Completed || newStatus == TicketStatus.Paid)
     )
       return +1;
-    if (
-      currentStatus != TicketStatus.Pending &&
-      newStatus != TicketStatus.Pending
-    )
-      return 0;
-    else return -1;
+
+    return 0;
   };
+
   return {
     ..._genericRepository,
+    updateChildAttendeeStatusEventById,
+    getChildAttendeesByEventId,
     getAttendeesByEventId,
     getAll,
     addAttendee,

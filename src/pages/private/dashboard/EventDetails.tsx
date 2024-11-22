@@ -1,4 +1,4 @@
-import { Modal, Progress } from "antd";
+import { Button, Modal, Progress, Tabs, TabsProps, Tooltip } from "antd";
 import { convertUnixToTimeText } from "../../../utils/dateTimeFormat";
 import DataTable, { ColumnConfig } from "../../../components/DataTable";
 import { IEvent } from "../../../interfaces/firebase/IEvent";
@@ -6,6 +6,19 @@ import { useState } from "react";
 import MyPurchaseEventCollapse from "../../../components/MyPurchaseEventCollapse";
 import eventService from "../../../firebase/services/eventService";
 import { IUser } from "../../../interfaces/firebase/IUser";
+import {
+  IChildWithParent,
+  IChildWithParentAndStatus,
+} from "../../../interfaces/firebase/IChild";
+import {
+  CloseCircleOutlined,
+  EditOutlined,
+  EyeOutlined,
+  SmileOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
+import ChildQrCodeModal from "../../../components/ChildQrCodeModal";
+import EditChildStatusModal from "../../../components/EditChildStatusModal";
 
 export default function EventDetails(props: {
   events: IEvent[];
@@ -15,38 +28,47 @@ export default function EventDetails(props: {
   const _eventService = eventService();
   const { events, refetch } = props;
   const [nonTechAndUsers, setNonTechAndUsers] = useState<IUser[]>([]);
-  // const { data: nonTechAndUsers, refetch: refetchUsers } = useQuery({
-  //   queryKey: ["nonTechAndUsers"],
-  //   queryFn: async () =>
-  //     await _eventService.getAttendeesByEventId(selectedEvent?.id ?? ""),
-  //   initialData: [],
-  // });
+  const [children, setChildren] = useState<IChildWithParentAndStatus[]>([]);
+
   const handleGetNonTechAndUsers = async (id: string | undefined) => {
     if (!id) throw new Error("id must not null");
     const attendees = await _eventService.getAttendeesByEventId(id);
     setNonTechAndUsers(attendees);
   };
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleGetChildren = async (eventId: string | undefined) => {
+    if (!eventId) throw new Error("id must not null");
+
+    const children = await _eventService.getChildAttendeesByEventId(eventId);
+    setChildren(children);
+  };
+
+  const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
+
   const handleClose = () => {
-    setIsModalOpen(false);
+    setIsAttendeesModalOpen(false);
   };
   const handleClickEvent = async (event: IEvent) => {
     setSelectedEvent(event);
+    console.log(event.isForKids);
+    if (event.isForKids) handleGetChildren(event.id);
     handleGetNonTechAndUsers(event.id);
-    setIsModalOpen(true);
+    setIsAttendeesModalOpen(true);
   };
   const refetchAll = () => {
     refetch();
+    handleGetChildren(selectedEvent?.id);
     handleGetNonTechAndUsers(selectedEvent?.id);
   };
 
   return (
     <>
-      <EventDetailModal
+      <EventAttendeesDetailModal
         refetch={refetchAll}
-        eventName={selectedEvent?.eventName || ""}
+        children={children}
+        selectedEvent={selectedEvent}
         nonTechAndUsers={nonTechAndUsers}
-        isModalOpen={isModalOpen}
+        isModalOpen={isAttendeesModalOpen}
         handleClose={handleClose}
       />
       {events?.map((event, index) => {
@@ -94,22 +116,36 @@ export default function EventDetails(props: {
   );
 }
 
-export const EventDetailModal = (props: {
+export const EventAttendeesDetailModal = (props: {
   nonTechAndUsers: IUser[];
-  eventName: string;
+  children: IChildWithParentAndStatus[];
+  selectedEvent: IEvent | null;
   isModalOpen: boolean;
   handleClose: () => void;
   refetch: () => void;
 }) => {
   const {
-    eventName,
+    selectedEvent,
     nonTechAndUsers = [],
+    children = [],
     isModalOpen,
     handleClose,
     refetch,
   } = props;
 
-  const columns: ColumnConfig[] = [
+  const [selectedChild, setSelectedChild] = useState<IChildWithParent | null>(
+    null
+  );
+  const [isChildQrModalOpen, setIsChildQrModalOpen] = useState<boolean>(false);
+  const [isEditChildStatusModalOpen, setIsEditChildStatusModalOpen] =
+    useState<boolean>(false);
+  const handleCloseModal = () => {
+    setSelectedChild(null);
+    setIsEditChildStatusModalOpen(false);
+    setIsChildQrModalOpen(false);
+    refetch();
+  };
+  const attendeeColumns: ColumnConfig[] = [
     {
       title: "Name",
       dataIndex: "name",
@@ -144,17 +180,242 @@ export const EventDetailModal = (props: {
       },
     },
   ];
+  const childColumns: ColumnConfig[] = [
+    {
+      title: "Parent",
+      dataIndex: "parentName",
+    },
+    {
+      title: "First Name",
+      dataIndex: "firstName",
+    },
+    {
+      title: "Last Name",
+      dataIndex: "lastName",
+    },
+    {
+      title: "Nickname",
+      dataIndex: "nickname",
+    },
+    {
+      title: "Food Allergies",
+      dataIndex: "",
+      width: 200,
+      render: (data: IChildWithParent) => {
+        if (data?.hasFoodAllergies) {
+          return <span>{data.foodAllergies}</span>;
+        }
+        return (
+          <span>
+            <CloseCircleOutlined style={{ color: "red" }} />
+          </span>
+        );
+      },
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+    },
+    {
+      title: "Action",
+      dataIndex: "",
+      render: (data: IChildWithParent) => (
+        <>
+          <Tooltip title={"View QR"}>
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setIsChildQrModalOpen(true);
+                setSelectedChild(data);
+              }}
+            />
+          </Tooltip>
+
+          <Tooltip title={"Edit status"}>
+            <Button
+              type="primary"
+              shape="circle"
+              style={{ backgroundColor: "green" }}
+              icon={<EditOutlined />}
+              onClick={() => {
+                setIsEditChildStatusModalOpen(true);
+                setSelectedChild(data);
+              }}
+            />
+          </Tooltip>
+        </>
+      ),
+    },
+  ];
+  const tabs: any[] = [
+    {
+      key: 1,
+      label: `Parent`,
+      children: (
+        <>
+          <DataTable dataSource={nonTechAndUsers} columns={attendeeColumns} />
+          <h6>Total: {nonTechAndUsers.length}</h6>
+        </>
+      ),
+      icon: <UserOutlined />,
+    },
+    {
+      disabled: !selectedEvent?.isForKids,
+      key: 2,
+      label: `Children`,
+      children: (
+        <>
+          <DataTable dataSource={children} columns={childColumns} />
+          <h6>Total: {children.length}</h6>
+        </>
+      ),
+      icon: <SmileOutlined />,
+    },
+  ];
+  return (
+    <>
+      <ChildQrCodeModal
+        selectedEvent={selectedEvent}
+        selectedChild={selectedChild}
+        isOpen={isChildQrModalOpen}
+        onClose={handleCloseModal}
+      />
+      <EditChildStatusModal
+        selectedChild={selectedChild}
+        selectedEvent={selectedEvent}
+        isOpen={isEditChildStatusModalOpen}
+        onClose={handleCloseModal}
+      />
+      <Modal
+        title={`${selectedEvent?.eventName} Attendees`}
+        open={isModalOpen}
+        onOk={handleClose}
+        onCancel={handleClose}
+        width={1200}
+      >
+        <Tabs defaultActiveKey="1" items={tabs} />
+      </Modal>
+    </>
+  );
+};
+
+export const EventChildrenDetailModal = (props: {
+  children: IChildWithParentAndStatus[];
+  selectedEvent: IEvent | null;
+  isModalOpen: boolean;
+  handleClose: () => void;
+  refetch: () => void;
+}) => {
+  const { selectedEvent, children, isModalOpen, handleClose, refetch } = props;
+
+  const [selectedChild, setSelectedChild] = useState<IChildWithParent | null>(
+    null
+  );
+  const [isChildQrModalOpen, setIsChildQrModalOpen] = useState<boolean>(false);
+  const [isEditChildStatusModalOpen, setIsEditChildStatusModalOpen] =
+    useState<boolean>(false);
+  const handleCloseModal = () => {
+    setSelectedChild(null);
+    setIsEditChildStatusModalOpen(false);
+    setIsChildQrModalOpen(false);
+    refetch();
+  };
+  const columns: ColumnConfig[] = [
+    {
+      title: "Parent",
+      dataIndex: "parentName",
+    },
+    {
+      title: "First Name",
+      dataIndex: "firstName",
+    },
+    {
+      title: "Last Name",
+      dataIndex: "lastName",
+    },
+    {
+      title: "Nickname",
+      dataIndex: "nickname",
+    },
+    {
+      title: "Food Allergies",
+      dataIndex: "",
+      width: 200,
+      render: (data: IChildWithParent) => {
+        if (data?.hasFoodAllergies) {
+          return <span>{data.foodAllergies}</span>;
+        }
+        return (
+          <span>
+            <CloseCircleOutlined style={{ color: "red" }} />
+          </span>
+        );
+      },
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+    },
+    {
+      title: "Action",
+      dataIndex: "",
+      render: (data: IChildWithParent) => (
+        <>
+          <Tooltip title={"View QR"}>
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setIsChildQrModalOpen(true);
+                setSelectedChild(data);
+              }}
+            />
+          </Tooltip>
+
+          <Tooltip title={"Edit status"}>
+            <Button
+              type="primary"
+              shape="circle"
+              style={{ backgroundColor: "green" }}
+              icon={<EditOutlined />}
+              onClick={() => {
+                setIsEditChildStatusModalOpen(true);
+                setSelectedChild(data);
+              }}
+            />
+          </Tooltip>
+        </>
+      ),
+    },
+  ];
 
   return (
-    <Modal
-      title={`${eventName} Attendees`}
-      open={isModalOpen}
-      onOk={handleClose}
-      onCancel={handleClose}
-      width={1200}
-    >
-      <DataTable dataSource={nonTechAndUsers} columns={columns} />
-      <h6>Total: {nonTechAndUsers.length}</h6>
-    </Modal>
+    <>
+      <ChildQrCodeModal
+        selectedEvent={selectedEvent}
+        selectedChild={selectedChild}
+        isOpen={isChildQrModalOpen}
+        onClose={handleCloseModal}
+      />
+      <EditChildStatusModal
+        selectedChild={selectedChild}
+        selectedEvent={selectedEvent}
+        isOpen={isEditChildStatusModalOpen}
+        onClose={handleCloseModal}
+      />
+      <Modal
+        title={`${selectedEvent?.eventName} Children Attendees`}
+        open={isModalOpen}
+        onOk={handleClose}
+        onCancel={handleClose}
+        width={1200}
+      >
+        <DataTable dataSource={children} columns={columns} />
+        <h6>Total: {children.length}</h6>
+      </Modal>
+    </>
   );
 };

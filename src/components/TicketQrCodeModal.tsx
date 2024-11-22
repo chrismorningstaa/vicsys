@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { v4 as uuidv4 } from "uuid";
 import { useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
-import IChild, { IChildWithParent } from "../interfaces/firebase/IChild";
+import IChild from "../interfaces/firebase/IChild";
 import childrenService from "../firebase/services/childrenService";
 
 export default function TicketQrCodeModal(props: {

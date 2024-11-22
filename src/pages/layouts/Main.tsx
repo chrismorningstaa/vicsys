@@ -52,10 +52,8 @@ export default function Main() {
               />
             )}
 
-            <Content style={{ margin: "24px 16px 0" }}>
-              <div className="container-fluid">
-                <Outlet />
-              </div>
+            <Content style={{ margin: "24px 16px 0", overflow: "auto" }}>
+              <Outlet />
             </Content>
             <Footer />
           </Layout>

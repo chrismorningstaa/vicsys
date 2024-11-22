@@ -15,6 +15,9 @@ export default interface IChild {
 export interface IChildWithParent extends IChild {
   parentName?: string;
 }
+export interface IChildWithParentAndStatus extends IChildWithParent {
+  status?: string;
+}
 export enum ChildCategory {
   FamilyRoom = "Family Room",
   Preschool = "Preschool",
