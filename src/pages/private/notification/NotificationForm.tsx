@@ -20,7 +20,6 @@ import { isSupported } from "firebase/messaging";
 const { Step } = Steps;
 const { TextArea } = Input;
 const { Text } = Typography;
-const dateNow = new Date();
 
 interface NotificationPayload {
   title: string;
@@ -281,7 +280,7 @@ const NotificationCreate: React.FC = () => {
       <DatePicker
         showTime
         style={{ width: "100%" }}
-        placeholder="Select date and time"
+        placeholder="Send now or Select date and time"
         value={formData.scheduledTime}
         onChange={(date) => handleInputChange("scheduledTime", date)}
         disabledDate={(current) => {
