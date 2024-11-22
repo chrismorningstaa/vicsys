@@ -9,10 +9,11 @@ import eventRepository from "../repositories/eventRepository";
 import { v4 as uuidv4 } from "uuid";
 import { convertUnixToDate } from "../../utils/dateTimeFormat";
 import moment, { Moment } from "moment";
+import ticketCategoryRepository from "../repositories/ticketCategoryRepository";
 export default function eventService() {
   const _eventRepository = eventRepository();
   const _documentRepository = documentRepository();
-
+  const _ticketCategoryRepository = ticketCategoryRepository();
   const add = async (data: IEventSave) => {
     let imageUrl = "";
     if (data.image instanceof File) {
@@ -20,13 +21,22 @@ export default function eventService() {
         data.image,
         `event_images/${uuidv4()}.png`
       );
-      const newTicketCategories = data.ticketCategories.map((t) => ({
-        ...t,
-        ticketSold: 0,
-        ticketRemaining: t.ticketTotal,
-      }));
+      const newTicketCategories = await Promise.all(
+        data.ticketCategories.map(async (t) => {
+          const ticket = await _ticketCategoryRepository.getById(
+            t?.ticketCategoryId ?? ""
+          );
+          return {
+            ...t,
+            ticketName: ticket?.description ?? "",
+            ticketSold: 0,
+            ticketRemaining: t.ticketTotal,
+          };
+        })
+      );
 
       imageUrl = url;
+
       const newData: IEvent = {
         ...data,
         attendees: [],
@@ -54,14 +64,28 @@ export default function eventService() {
       };
       return await _eventRepository.update(id, newData);
     }
+    const ticketCategories = await Promise.all(
+      data.ticketCategories.map(async (t) => {
+        const ticket = await _ticketCategoryRepository.getById(
+          t?.ticketCategoryId ?? ""
+        );
+        return {
+          ...t,
+          ticketName: ticket?.description ?? "",
+        };
+      })
+    );
+
     const newData: IEvent = {
       ...data,
       endTime: new Date(data.endTime),
       startTime: new Date(data.startTime),
       image: data.image,
+      ticketCategories: ticketCategories,
     };
     return await _eventRepository.update(id, newData);
   };
+
   const deleteById = async (id: string) => {
     await _eventRepository.deleteById(id);
   };

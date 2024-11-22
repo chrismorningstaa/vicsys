@@ -19,11 +19,12 @@ import eventService from "../../../../firebase/services/eventService";
 import Swal from "sweetalert2";
 import ticketCategoryService from "../../../../firebase/services/ticketCategoryService";
 import { useQuery } from "@tanstack/react-query";
+import { Timestamp } from "firebase/firestore";
 // import { useQuery } from "@tanstack/react-query";
 // import ticketCategoryService from "../../../../firebase/services/ticketCategoryService";
 // import ITicketCategory from "../../../../interfaces/firebase/ITicketCategory";
 const { Option } = Select;
-
+const { RangePicker } = DatePicker;
 export default function EventSaveModal() {
   const {
     isSaveModalOpen,
@@ -42,10 +43,14 @@ export default function EventSaveModal() {
     queryKey: ["ticketCategories"],
     queryFn: _ticketCategoryService.getAll,
   });
-  const onFinish = async (values: IEventSave) => {
+  const onFinish = async (values: any) => {
     try {
+      const [startTime, endTime] = values.eventDuration || [];
+      const { eventDuration, ...rest } = values;
       const formattedValues: IEventSave = {
-        ...values,
+        ...rest,
+        startTime: startTime ?? null,
+        endTime: endTime ?? null,
         image: imageUpload ?? values.image,
       };
       form.validateFields();
@@ -66,6 +71,11 @@ export default function EventSaveModal() {
       });
     } catch (_e: any) {
       let e: Error = _e;
+      Swal.fire({
+        icon: "error",
+        title: "Error saving event",
+        text: e.message,
+      });
     }
   };
 
@@ -73,8 +83,14 @@ export default function EventSaveModal() {
     if (selectedEvent) {
       const formattedValues = {
         ...selectedEvent,
-        startTime: convertUnixToDate(selectedEvent.startTime),
-        endTime: convertUnixToDate(selectedEvent.endTime),
+        eventDuration: [
+          selectedEvent.startTime
+            ? convertUnixToDate(selectedEvent.startTime)
+            : null,
+          selectedEvent.endTime
+            ? convertUnixToDate(selectedEvent.endTime)
+            : null,
+        ],
       };
       form.setFieldsValue(formattedValues);
       return;
@@ -82,8 +98,7 @@ export default function EventSaveModal() {
     form.setFieldsValue({
       eventName: "",
       description: "",
-      endTime: "",
-      startTime: "",
+      eventDuration: [],
       image: "",
       venue: "",
       ticketCategories: [],
@@ -158,31 +173,19 @@ export default function EventSaveModal() {
           <div className="d-flex gap-2">
             {/* Start Time */}
             <Form.Item
-              label="Start Time"
-              name="startTime"
+              label="Event Duration"
+              name="eventDuration"
               rules={[
-                { required: true, message: "Please select the start time!" },
+                {
+                  required: true,
+                  message: "Please select the event duration!",
+                },
               ]}
             >
-              <DatePicker
+              <RangePicker
                 showTime
                 format="MM/DD/YYYY HH:mm A"
-                placeholder="Select start time"
-              />
-            </Form.Item>
-
-            {/* End Time */}
-            <Form.Item
-              label="End Time"
-              name="endTime"
-              rules={[
-                { required: true, message: "Please select the end time!" },
-              ]}
-            >
-              <DatePicker
-                showTime
-                format="MM/DD/YYYY HH:mm A"
-                placeholder="Select end time"
+                placeholder={["Start Time", "End Time"]}
               />
             </Form.Item>
           </div>
@@ -200,13 +203,13 @@ export default function EventSaveModal() {
                   >
                     <Form.Item
                       {...restField}
-                      name={[name, "ticketName"]}
+                      name={[name, "ticketCategoryId"]}
                       label="Ticket Name"
                       rules={[{ required: true, message: "Required" }]}
                     >
                       <Select>
                         {ticketCategories?.map((t) => (
-                          <Option value={t.description}>{t.description}</Option>
+                          <Option value={t.id}>{t.description}</Option>
                         ))}
                       </Select>
                     </Form.Item>
