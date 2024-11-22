@@ -61,12 +61,12 @@ export default function Sidebar() {
       icon: <UserOutlined />,
       onClick: () => navigate("kids-list"),
     },
-    {
-      label: "My Purchase",
-      key: "7",
-      icon: <ShoppingCartOutlined />,
-      onClick: () => navigate("my-purchase"),
-    },
+    // {
+    //   label: "My Purchase",
+    //   key: "7",
+    //   icon: <ShoppingCartOutlined />,
+    //   onClick: () => navigate("my-purchase"),
+    // },
     // {
     //   label: "My Kids",
     //   key: "8",

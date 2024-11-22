@@ -1,10 +1,12 @@
+const { getFirestore } = require('firebase-admin/firestore');
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
 const fetch = require('node-fetch');
+const schedule = require('node-schedule');
 const projectId = 'vicsys-a6039';
-const { getFirestore } = require('firebase-admin/firestore');
+
 
 // const {Storage} = require('@google-cloud/storage');
 
@@ -38,16 +40,10 @@ const PORT = 5000;
 const db = getFirestore();
 
 app.use(cors({
-  origin: function(origin, callback){
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if(!origin) return callback(null, true);
-    
-    // Allow all origins during development
-    return callback(null, true);
-  },
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  methods: ['GET', 'POST', 'OPTIONS'],  
+  allowedHeaders: ['Content-Type', 'Authorization'],  
+  credentials: true 
 }));
 
 app.use(bodyParser.json());
@@ -65,6 +61,43 @@ async function getAccessToken() {
   }
 }
 
+async function scheduleNotification(campaignData, scheduledFor) {
+  // Create a scheduled job
+  schedule.scheduleJob(new Date(scheduledFor), async () => {
+    try {
+      await createCampaign(campaignData);
+      
+      // Update the campaign status in Firestore
+      await db.collection('notificationCampaigns')
+        .doc(campaignData.campaignId)
+        .update({
+          status: 'sent',
+          sentAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (error) {
+      console.error('Error sending scheduled notification:', error);
+      
+      // Update campaign status to failed
+      await db.collection('notificationCampaigns')
+        .doc(campaignData.campaignId)
+        .update({
+          status: 'failed',
+          error: error.message
+        });
+    }
+  });
+
+  // Save initial campaign data to Firestore
+  const campaign = {
+    ...campaignData,
+    status: 'scheduled',
+    scheduledFor: admin.firestore.Timestamp.fromDate(new Date(scheduledFor)),
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+
+  const docRef = await db.collection('notificationCampaigns').add(campaign);
+  return docRef.id;
+}
 
 // Backend: Update your createCampaign function
 async function createCampaign(campaignData) {
@@ -189,33 +222,42 @@ async function saveCampaignToFirestore(campaignData, fcmResponse) {
 
 app.post("/send-notification", async (req, res) => {
   try {
-    console.log("Received notification request:", req.body);
-    const { title, body, targetType, targetValue } = req.body;
+    const { title, body, targetType, targetValue, scheduledFor } = req.body;
 
     if (!title || !body) {
       return res.status(400).json({ error: "Title and body are required" });
     }
 
-    const campaignResponse = await createCampaign({
+    const campaignData = {
       title,
       body,
       targetType,
-      targetValue
-    });
+      targetValue,
+    };
 
-    const firestoreId = await saveCampaignToFirestore(req.body, campaignResponse);
+    let response;
+    let campaignId;
 
-    console.log("Campaign created and saved successfully:", campaignResponse);
+    if (scheduledFor) {
+      // Handle scheduled notification
+      campaignId = await scheduleNotification(campaignData, scheduledFor);
+      response = { scheduled: true, scheduledFor };
+    } else {
+      // Handle immediate notification
+      response = await createCampaign(campaignData);
+      campaignId = await saveCampaignToFirestore(campaignData, response);
+    }
+
     res.status(200).json({ 
-      message: "Notification campaign created successfully", 
-      response: campaignResponse,
-      campaignId: firestoreId
+      message: scheduledFor ? "Notification scheduled successfully" : "Notification sent successfully",
+      campaignId,
+      response
     });
 
   } catch (error) {
-    console.error("Error creating campaign:", error);
+    console.error("Error handling notification:", error);
     res.status(500).json({ 
-      error: "Failed to create notification campaign", 
+      error: "Failed to process notification", 
       details: error.message 
     });
   }

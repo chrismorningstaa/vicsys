@@ -11,7 +11,6 @@ import {
   Tag,
   Modal,
   Typography,
-  Checkbox,
 } from "antd";
 import { LeftOutlined, RightOutlined, SendOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -29,7 +28,7 @@ interface NotificationPayload {
   token: string;
   targetType: "all" | "specific" | "topic";
   targetValue: string;
-  scheduledTime: Date | "";
+  scheduledTime: dayjs.Dayjs | null;
   campaignId?: string;
 }
 
@@ -41,14 +40,14 @@ const NotificationCreate: React.FC = () => {
     token: "",
     targetType: "all",
     targetValue: "",
-    scheduledTime: new Date(),
+    scheduledTime: null,
   });
   const [previewModal, setPreviewModal] = useState<{
     visible: boolean;
     notification: NotificationPayload | null;
   }>({
     visible: false,
-    notification: null
+    notification: null,
   });
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -101,11 +100,11 @@ const NotificationCreate: React.FC = () => {
 
   const formatTarget = (targetType: string, targetValue: string) => {
     switch (targetType) {
-      case 'all':
+      case "all":
         return <Tag color="blue">All Users</Tag>;
-      case 'topic':
+      case "topic":
         return <Tag color="green">Topic: {targetValue}</Tag>;
-      case 'specific':
+      case "specific":
         return <Tag color="orange">Specific Device</Tag>;
       default:
         return <Tag color="default">Unknown</Tag>;
@@ -171,13 +170,13 @@ const NotificationCreate: React.FC = () => {
           targetValue: formData.targetValue,
         }),
         ...(formData.scheduledTime && {
-          scheduledTime: formData.scheduledTime,
+          scheduledFor: formData.scheduledTime.toISOString(),
         }),
       };
 
       console.log("Creating notification campaign:", payload);
 
-      const response = await fetch("https://localhost:5000/send-notification", {
+      const response = await fetch("http://localhost:5000/send-notification", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -197,14 +196,13 @@ const NotificationCreate: React.FC = () => {
       setSuccess(true);
       setCampaignId(data.campaignId);
 
-      // Reset form after successful submission
       setFormData({
         title: "",
         body: "",
-        token: formData.token, // Keep the token
+        token: formData.token,
         targetType: "all",
         targetValue: "",
-        scheduledTime: new Date(),
+        scheduledTime: null,
       });
       setCurrentStep(0);
     } catch (err) {
@@ -283,16 +281,36 @@ const NotificationCreate: React.FC = () => {
       <DatePicker
         showTime
         style={{ width: "100%" }}
-        placeholder={dateNow.toString()}
-        onChange={(date) =>
-          handleInputChange("scheduledTime", date ? date.toISOString() : null)
-        }
+        placeholder="Select date and time"
+        value={formData.scheduledTime}
+        onChange={(date) => handleInputChange("scheduledTime", date)}
         disabledDate={(current) => {
           return current && current < dayjs().startOf("day");
         }}
+        disabledTime={(date) => {
+          if (date && date.isSame(dayjs(), "day")) {
+            const currentHour = dayjs().hour();
+            const currentMinute = dayjs().minute();
+            return {
+              disabledHours: () =>
+                Array.from({ length: currentHour }, (_, i) => i),
+              disabledMinutes: (selectedHour) =>
+                selectedHour === currentHour
+                  ? Array.from({ length: currentMinute }, (_, i) => i)
+                  : [],
+            };
+          }
+          return {};
+        }}
+        showNow={false}
       />
     </Space>
   );
+
+  const renderScheduledTime = (time: dayjs.Dayjs | null) => {
+    if (!time) return "Not scheduled";
+    return time.format("YYYY-MM-DD HH:mm:ss");
+  };
 
   const getCurrentStepContent = () => {
     switch (currentStep) {
@@ -363,8 +381,10 @@ const NotificationCreate: React.FC = () => {
           </Button>
 
           <Button
-            onClick={() => setPreviewModal({ visible: true, notification: formData })}
-            disabled={currentStep < 2} 
+            onClick={() =>
+              setPreviewModal({ visible: true, notification: formData })
+            }
+            disabled={currentStep < 2}
           >
             Preview
           </Button>
@@ -390,33 +410,35 @@ const NotificationCreate: React.FC = () => {
         open={previewModal.visible}
         onCancel={() => setPreviewModal({ visible: false, notification: null })}
         footer={[
-          <Button 
-            key="close" 
-            onClick={() => setPreviewModal({ visible: false, notification: null })}
+          <Button
+            key="close"
+            onClick={() =>
+              setPreviewModal({ visible: false, notification: null })
+            }
           >
             Close
-          </Button>
+          </Button>,
         ]}
       >
         {previewModal.notification && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space direction="vertical" style={{ width: "100%" }}>
             <Card>
               <Space direction="vertical">
                 <Text strong>Title:</Text>
                 <Text>{previewModal.notification.title}</Text>
-                
+
                 <Text strong>Content:</Text>
                 <Text>{previewModal.notification.body}</Text>
-                
+
                 <Text strong>Target:</Text>
                 {formatTarget(
-                  previewModal.notification.targetType, 
+                  previewModal.notification.targetType,
                   previewModal.notification.targetValue
                 )}
-                
+
                 <Text strong>Scheduled At:</Text>
                 <Text>
-                  {dayjs(previewModal.notification.scheduledTime).format('YYYY-MM-DD HH:mm:ss')}
+                  {renderScheduledTime(previewModal.notification.scheduledTime)}
                 </Text>
               </Space>
             </Card>
