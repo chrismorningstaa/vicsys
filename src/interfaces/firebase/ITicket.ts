@@ -11,4 +11,5 @@ export enum TicketStatus {
   Completed = "Completed",
   Paid = "Paid",
   Pending = "Pending",
+  Declined = "Declined",
 }

@@ -5,6 +5,7 @@ export interface IAttendee {
 }
 export interface IChildAttendee {
   childId: string;
+  status: EventChildStatus;
 }
 
 export interface IEvent {
@@ -52,4 +53,9 @@ export interface IOngoingEvent {
   image: string;
   venue: string;
   ticketCategories: ITicketCategory[];
+}
+export enum EventChildStatus {
+  Arrived = "Arrived",
+  Fetch = "Fetch",
+  Pending = "Pending",
 }

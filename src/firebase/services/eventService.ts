@@ -1,4 +1,5 @@
 import {
+  EventChildStatus,
   IEvent,
   IEventSave,
   IOngoingEvent,
@@ -84,6 +85,9 @@ export default function eventService() {
   const getAttendeesByEventId = async (eventId: string) => {
     return await _eventRepository.getAttendeesByEventId(eventId);
   };
+  const getChildAttendeesByEventId = async (eventId: string) => {
+    return await _eventRepository.getChildAttendeesByEventId(eventId);
+  };
 
   const getOngoingEvents = async (): Promise<IOngoingEvent[]> => {
     const events = await _eventRepository.getAll();
@@ -122,11 +126,24 @@ export default function eventService() {
     });
     return filteredEvents;
   };
+  const updateChildAttendeeStatusEventById = async (
+    eventId: string,
+    newStatus: EventChildStatus,
+    childId: string
+  ) => {
+    await _eventRepository.updateChildAttendeeStatusEventById(
+      eventId,
+      newStatus,
+      childId
+    );
+  };
 
   return {
+    updateChildAttendeeStatusEventById,
     getByDate,
     getOngoingEvents,
     getAttendeesByEventId,
+    getChildAttendeesByEventId,
     add,
     update,
     deleteById,

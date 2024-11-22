@@ -17,6 +17,10 @@ export const ticketStatus: TicketStatusRepresentation[] = [
     text: TicketStatus.Completed,
     color: "#0D6EFD",
   },
+  {
+    text: TicketStatus.Declined,
+    color: "#dc3545",
+  },
 ];
 
 export function TicketStatusText(props: { status: TicketStatus | undefined }) {

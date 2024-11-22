@@ -11,6 +11,7 @@ import userService from "../firebase/services/userService";
 import Swal from "sweetalert2";
 import { TicketStatusText } from "./TicketStatusText";
 import TicketQrCodeModal from "./TicketQrCodeModal";
+import EditTicketStatusModal from "./EditTicketStatusModal";
 
 export default function MyPurchaseEventCollapse(props: {
   purchaseEvents: IMyPuchaseEvent[];
@@ -140,70 +141,5 @@ export default function MyPurchaseEventCollapse(props: {
         ]}
       />
     </>
-  );
-}
-
-function EditTicketStatusModal(props: {
-  handleUpdateStatus: (value: TicketStatus) => void;
-  isModalOpen: boolean;
-  handleClose: () => void;
-  selectedPurchase: IMyPuchaseEvent | null;
-  selectedEvent: IEvent | null;
-}) {
-  const {
-    isModalOpen,
-    handleClose,
-    selectedPurchase,
-    selectedEvent,
-    handleUpdateStatus,
-  } = props;
-
-  const buttons: BaseButtonProps[] = [
-    { children: TicketStatus.Pending, className: "bg-warning text-dark" },
-    { children: TicketStatus.Completed, className: "bg-primary" },
-    { children: TicketStatus.Paid, className: "bg-success" },
-  ];
-
-  const FooterButton = () => (
-    <>
-      {buttons
-        .filter((b) => b.children != selectedPurchase?.status)
-        .map((b) => (
-          <Button
-            {...b}
-            type="primary"
-            onClick={() => {
-              handleUpdateStatus(b.children as TicketStatus);
-            }}
-          />
-        ))}
-    </>
-  );
-
-  return (
-    <Modal
-      title="Update Status"
-      open={isModalOpen}
-      footer={<FooterButton />}
-      onCancel={handleClose}
-    >
-      <div className="container">
-        <div className="row mb-2">
-          <div className="col font-weight-bold">Event:</div>
-          <div className="col">{selectedEvent?.eventName}</div>
-        </div>
-        <div className="row mb-2">
-          <div className="col font-weight-bold">Ticket Name:</div>
-          <div className="col">{selectedPurchase?.ticketName}</div>
-        </div>
-        <div className="row mb-2">
-          <div className="col font-weight-bold">Current Status:</div>
-          <div className="col">
-            {" "}
-            <TicketStatusText status={selectedPurchase?.status} />
-          </div>
-        </div>
-      </div>
-    </Modal>
   );
 }

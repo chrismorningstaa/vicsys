@@ -1,5 +1,9 @@
 import IChild from "../../interfaces/firebase/IChild";
-import { IChildAttendee, IEvent } from "../../interfaces/firebase/IEvent";
+import {
+  EventChildStatus,
+  IChildAttendee,
+  IEvent,
+} from "../../interfaces/firebase/IEvent";
 import { IMyPuchaseEvent } from "../../interfaces/firebase/INonTechUser";
 import eventRepository from "../repositories/eventRepository";
 import nonTechUserRepository from "../repositories/nonTechUserRepository";
@@ -23,12 +27,12 @@ export default function bookingService() {
       user = await _nonTechUserRepository.getById(nonTectUserId);
     if (!event || !user) throw new Error("Event or user not found");
 
-    // const updatedTicketCategories = event.ticketCategories.map((t) => ({
-    //   ...t,
-    //   ticketRemaining:
-    //     (t.ticketRemaining ?? 0) -
-    //     myPurchases.filter((m) => m.ticketName == t.ticketName).length,
-    // }));
+    const updatedTicketCategories = event.ticketCategories.map((t) => ({
+      ...t,
+      ticketRemaining:
+        (t.ticketRemaining ?? 0) -
+        myPurchases.filter((m) => m.ticketName == t.ticketName).length,
+    }));
 
     const udpatedAttendees = () => {
       if (event.attendees.some((u) => u.userId == userId) && event.attendees)
@@ -40,7 +44,7 @@ export default function bookingService() {
 
     await _eventRepository.update(event?.id || "", {
       ...event,
-      ticketCategories: event.ticketCategories,
+      ticketCategories: updatedTicketCategories,
       attendees: udpatedAttendees(),
     });
 
@@ -64,9 +68,9 @@ export default function bookingService() {
     const event = await _eventRepository.getById(eventId);
     if (!event) throw new Error("Event not found");
 
-    console.log(newChildren);
     const newChildrenIds: IChildAttendee[] = newChildren.map((n) => ({
       childId: n?.id ?? "",
+      status: EventChildStatus.Pending,
     }));
 
     const updatedEvent: IEvent = {
