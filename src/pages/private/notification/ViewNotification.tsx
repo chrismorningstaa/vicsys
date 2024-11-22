@@ -18,7 +18,8 @@ import {
   orderBy, 
   getDocs, 
   deleteDoc,
-  doc 
+  doc,
+  updateDoc
 } from 'firebase/firestore';
 import dayjs from 'dayjs';
 
@@ -50,6 +51,7 @@ interface NotificationData {
   targetValue: string;
   status: NotificationStatus;
   createdAt: any; // Firestore Timestamp
+  scheduledTime?: any; // Optional scheduled time
 }
 
 const ViewNotification: React.FC = () => {
@@ -62,6 +64,28 @@ const ViewNotification: React.FC = () => {
     visible: false,
     notification: null
   });
+
+  // Check and update scheduled notifications
+  const updateScheduledNotifications = async (notifications: NotificationData[]) => {
+    const currentTime = new Date();
+    
+    for (const notification of notifications) {
+      if (notification.status === 'scheduled' && notification.scheduledTime) {
+        const scheduledTime = notification.scheduledTime.toDate();
+        
+        if (currentTime >= scheduledTime) {
+          try {
+            // Update the notification status in Firestore
+            await updateDoc(doc(db, 'notificationCampaigns', notification.id), {
+              status: 'sent'
+            });
+          } catch (error) {
+            console.error('Error updating notification status:', error);
+          }
+        }
+      }
+    }
+  };
 
   // Fetch notifications from Firestore
   const fetchNotifications = async () => {
@@ -76,7 +100,17 @@ const ViewNotification: React.FC = () => {
         ...doc.data(),
       })) as NotificationData[];
 
-      setNotifications(notificationData);
+      // Update scheduled notifications if needed
+      await updateScheduledNotifications(notificationData);
+      
+      // Fetch the updated data
+      const updatedQuerySnapshot = await getDocs(q);
+      const updatedNotificationData = updatedQuerySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as NotificationData[];
+
+      setNotifications(updatedNotificationData);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       message.error('Failed to fetch notifications');
@@ -87,6 +121,13 @@ const ViewNotification: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
+    
+    // Set up an interval to check scheduled notifications every minute
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 60000); // 60000 ms = 1 minute
+
+    return () => clearInterval(interval);
   }, []);
 
   // Handle notification deletion

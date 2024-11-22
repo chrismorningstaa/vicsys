@@ -12,7 +12,12 @@ import { Table } from "antd";
 import { useState } from "react";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 dayjs.extend(isBetween);
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
+
 import { ExportButtons } from "../../../components/ExportButtons";
 import PrintButton from "../../../components/PrintButtons";
 
@@ -51,33 +56,31 @@ export default function ReportsPage() {
     queryFn: _eventService.getAll,
   });
 
-  const { data: ongoingEvents } = useQuery({
-    queryKey: ["ongoingEvents"],
-    queryFn: async () => {
-      const ongoingEvents: IOngoingEvent[] =
-        await _eventService.getOngoingEvents();
-      for (const event of ongoingEvents) {
-        event.attendees = await _eventService.getAttendeesByEventId(
-          event.id ?? ""
-        );
-      }
-      return ongoingEvents;
-    },
-  });
+  const getCompletedEvents = (allEvents: any[]) => {
+    if (!allEvents) return [];
 
-  const getTicketStatusCounts = (event: IOngoingEvent) => {
-    let attendedCount = 0;
-    let notAttendedCount = 0;
-    for (const attendee of event.attendees) {
-      for (const purchase of attendee.myPurchaseEvents ?? []) {
-        if (purchase.status === TicketStatus.Completed) {
-          attendedCount++;
-        } else {
-          notAttendedCount++;
-        }
-      }
-    }
-    return { attendedCount, notAttendedCount };
+    const currentDate = dayjs();
+    return allEvents.filter((event) => {
+      const endTime = normalizeTimestamp(event.endTime);
+      return endTime && endTime.isBefore(currentDate, "day");
+    });
+  };
+
+  const getOngoingEvents = (allEvents: any[]) => {
+    if (!allEvents) return [];
+
+    const currentDate = dayjs();
+    return allEvents.filter((event) => {
+      const startTime = normalizeTimestamp(event.startTime);
+      const endTime = normalizeTimestamp(event.endTime);
+
+      return (
+        startTime &&
+        endTime &&
+        startTime.isSameOrBefore(currentDate, "day") &&
+        endTime.isSameOrAfter(currentDate, "day")
+      );
+    });
   };
 
   const getPendingTicketsCount = (event: IOngoingEvent) => {
@@ -139,7 +142,10 @@ export default function ReportsPage() {
   };
 
   const filteredEvents = filterEventsByDateRange(events ?? []);
-  const filteredOngoingEvents = filterEventsByDateRange(ongoingEvents ?? []);
+  const ongoingEventsList = filterEventsByDateRange(getOngoingEvents(events ?? []));
+  const completedEvents = filterEventsByDateRange(
+    getCompletedEvents(events ?? [])
+  );
 
   const totalEventsColumns = [
     { title: "Event Name", dataIndex: "eventName" },
@@ -165,6 +171,22 @@ export default function ReportsPage() {
     { title: "Event Name", dataIndex: "eventName" },
     { title: "Venue", dataIndex: "venue" },
     {
+      title: "Start Date",
+      dataIndex: "startTime",
+      render: (date: any) => {
+        const timestamp = normalizeTimestamp(date);
+        return timestamp ? timestamp.format("MMMM D, YYYY") : "";
+      },
+    },
+    {
+      title: "End Date",
+      dataIndex: "endTime",
+      render: (date: any) => {
+        const timestamp = normalizeTimestamp(date);
+        return timestamp ? timestamp.format("MMMM D, YYYY") : "";
+      },
+    },
+    {
       title: "Attendees",
       dataIndex: "attendees",
       render: (attendees: IUser[]) => attendees.length,
@@ -185,6 +207,108 @@ export default function ReportsPage() {
     },
   ];
 
+  const completedEventsColumns = [
+    {
+      title: "Event Name",
+      dataIndex: "eventName",
+      sorter: (a: any, b: any) => a.eventName.localeCompare(b.eventName),
+    },
+    {
+      title: "Venue",
+      dataIndex: "venue",
+    },
+    {
+      title: "Start Date",
+      dataIndex: "startTime",
+      render: (date: any) => {
+        const timestamp = normalizeTimestamp(date);
+        return timestamp ? timestamp.format("MMMM D, YYYY") : "";
+      },
+      sorter: (a: any, b: any) => {
+        const aTime = normalizeTimestamp(a.startTime);
+        const bTime = normalizeTimestamp(b.startTime);
+        if (!aTime || !bTime) return 0;
+        return aTime.diff(bTime);
+      },
+    },
+    {
+      title: "End Date",
+      dataIndex: "endTime",
+      render: (date: any) => {
+        const timestamp = normalizeTimestamp(date);
+        return timestamp ? timestamp.format("MMMM D, YYYY") : "";
+      },
+      sorter: (a: any, b: any) => {
+        const aTime = normalizeTimestamp(a.endTime);
+        const bTime = normalizeTimestamp(b.endTime);
+        if (!aTime || !bTime) return 0;
+        return aTime.diff(bTime);
+      },
+    },
+    {
+      title: "Total Attendees",
+      dataIndex: "attendees",
+      render: (attendees: IUser[]) => attendees?.length || 0,
+      sorter: (a: any, b: any) =>
+        (a.attendees?.length || 0) - (b.attendees?.length || 0),
+    },
+    {
+      title: "Total Tickets Sold",
+      dataIndex: "ticketCategories",
+      render: (ticketCategories: ITicketCategory[]) =>
+        ticketCategories?.reduce(
+          (total, category) => total + (category.ticketSold || 0),
+          0
+        ) || 0,
+      sorter: (a: any, b: any) => {
+        const aTotal =
+          a.ticketCategories?.reduce(
+            (total: number, cat: ITicketCategory) =>
+              total + (cat.ticketSold || 0),
+            0
+          ) || 0;
+        const bTotal =
+          b.ticketCategories?.reduce(
+            (total: number, cat: ITicketCategory) =>
+              total + (cat.ticketSold || 0),
+            0
+          ) || 0;
+        return aTotal - bTotal;
+      },
+    },
+    {
+      title: "Revenue",
+      dataIndex: "ticketCategories",
+      render: (ticketCategories: ITicketCategory[]) => {
+        const amount =
+          ticketCategories?.reduce(
+            (total, category) =>
+              total + (category.ticketSold || 0) * (category.ticketPrice || 0),
+            0
+          ) || 0;
+        return `₱${amount.toLocaleString("en-PH", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
+      },
+      sorter: (a: any, b: any) => {
+        const aRevenue =
+          a.ticketCategories?.reduce(
+            (total: number, cat: ITicketCategory) =>
+              total + (cat.ticketSold || 0) * (cat.ticketPrice || 0),
+            0
+          ) || 0;
+        const bRevenue =
+          b.ticketCategories?.reduce(
+            (total: number, cat: ITicketCategory) =>
+              total + (cat.ticketSold || 0) * (cat.ticketPrice || 0),
+            0
+          ) || 0;
+        return aRevenue - bRevenue;
+      },
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <Card>
@@ -198,7 +322,7 @@ export default function ReportsPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <Card>
           <div className="mb-4">
             <div className="flex items-center justify-between">
@@ -227,32 +351,60 @@ export default function ReportsPage() {
           />
         </Card>
 
-        <Card className="col-span-1 md:col-span-2 lg:col-span-2">
+        <Card>
           <div className="mb-4">
             <div className="flex items-center justify-between">
-              <Title level={4}>Completed/Ongoing Events</Title>
+              <Title level={4}>Ongoing Events</Title>
               <Space>
                 <span className="text-gray-500">
-                  Showing {filteredOngoingEvents?.length} of{" "}
-                  {ongoingEvents?.length} events
+                  Showing {ongoingEventsList?.length} ongoing events
                 </span>
                 <ExportButtons
-                  data={filteredOngoingEvents}
+                  data={ongoingEventsList}
                   columns={ongoingEventsColumns}
                   fileName="ongoing-events"
                   title="Ongoing Events Report"
                 />
                 <PrintButton
                   tableId="ongoing-events-table"
-                  title="Completed/Ongoing Events Report"
+                  title="Ongoing Events Report"
                 />
               </Space>
             </div>
           </div>
           <Table
             id="ongoing-events-table"
-            dataSource={filteredOngoingEvents}
+            dataSource={ongoingEventsList}
             columns={ongoingEventsColumns}
+          />
+        </Card>
+
+        <Card>
+          <div className="mb-4">
+            <div className="flex items-center justify-between">
+              <Title level={4}>Completed Events</Title>
+              <Space>
+                <span className="text-gray-500">
+                  Showing {completedEvents?.length} completed events
+                </span>
+                <ExportButtons
+                  data={completedEvents}
+                  columns={completedEventsColumns}
+                  fileName="completed-events"
+                  title="Completed Events Report"
+                />
+                <PrintButton
+                  tableId="completed-events-table"
+                  title="Completed Events Report"
+                />
+              </Space>
+            </div>
+          </div>
+          <Table
+            id="completed-events-table"
+            dataSource={completedEvents}
+            columns={completedEventsColumns}
+            scroll={{ x: true }}
           />
         </Card>
       </div>

@@ -3,8 +3,6 @@ import {
   IEvent,
   ITicketCategory,
 } from "../../../../interfaces/firebase/IEvent";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "../../../../firebase/firebaseConfig";
 import {
   message,
   Modal,
