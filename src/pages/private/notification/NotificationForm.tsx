@@ -16,13 +16,16 @@ import { LeftOutlined, RightOutlined, SendOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { messaging, requestForToken } from "../../../firebase/firebaseConfig";
 import { isSupported } from "firebase/messaging";
+import SchedulingStep from "./SchedulingStep";
+import NotificationStep from "./NotificationStep";
+import TargetStep from "./TargetStep";
+import nofiticationCampaignService from "../../../firebase/services/nofiticationCampaignService";
+import INotificationCampaign from "../../../interfaces/firebase/INofiticationCampaign";
 
 const { Step } = Steps;
-const { TextArea } = Input;
 const { Text } = Typography;
-const dateNow = new Date();
 
-interface NotificationPayload {
+export interface NotificationPayload {
   title: string;
   body: string;
   token: string;
@@ -53,10 +56,9 @@ const NotificationCreate: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
-  const [campaignId, setCampaignId] = useState<string | null>(null);
   const [isMessagingSupported, setIsMessagingSupported] =
     useState<boolean>(true);
-
+  const _nofiticationCampaignService = nofiticationCampaignService();
   useEffect(() => {
     const checkMessagingSupport = async () => {
       try {
@@ -173,16 +175,16 @@ const NotificationCreate: React.FC = () => {
           scheduledFor: formData.scheduledTime.toISOString(),
         }),
       };
-
-      console.log("Creating notification campaign:", payload);
-
-      const response = await fetch("http://localhost:5000/send-notification", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        "https://vicsys-web-api.runasp.net/api/Message",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const data = await response.json();
 
@@ -191,11 +193,20 @@ const NotificationCreate: React.FC = () => {
           data.details || data.error || `HTTP error! status: ${response.status}`
         );
       }
+      const now = new Date().toISOString();
 
-      console.log("Campaign created:", data);
+      const campaignData: INotificationCampaign = {
+        title: data.title,
+        body: data.body,
+        createdAt: now,
+        sentAt: data.status === "sent" ? now : null,
+        status: data.status,
+        targetType: data.targetType,
+        targetValue: data.targetValue,
+      };
+
+      await _nofiticationCampaignService.add(campaignData);
       setSuccess(true);
-      setCampaignId(data.campaignId);
-
       setFormData({
         title: "",
         body: "",
@@ -226,86 +237,86 @@ const NotificationCreate: React.FC = () => {
     );
   }
 
-  const NotificationStep = () => (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
-      <Input
-        placeholder="Notification Title"
-        value={formData.title}
-        onChange={(e) => handleInputChange("title", e.target.value)}
-      />
-      <TextArea
-        placeholder="Notification Body"
-        value={formData.body}
-        onChange={(e) => handleInputChange("body", e.target.value)}
-        rows={4}
-      />
-      <Input.TextArea
-        value={formData.token}
-        readOnly
-        rows={2}
-        placeholder="Device Registration Token"
-        style={{ display: "none" }}
-      />
-    </Space>
-  );
+  // const NotificationStep = () => (
+  //   <Space direction="vertical" size="large" style={{ width: "100%" }}>
+  //     <Input
+  //       placeholder="Notification Title"
+  //       value={formData.title}
+  //       onChange={(e) => handleInputChange("title", e.target.value)}
+  //     />
+  //     <TextArea
+  //       placeholder="Notification Body"
+  //       value={formData.body}
+  //       onChange={(e) => handleInputChange("body", e.target.value)}
+  //       rows={4}
+  //     />
+  //     <Input.TextArea
+  //       value={formData.token}
+  //       readOnly
+  //       rows={2}
+  //       placeholder="Device Registration Token"
+  //       style={{ display: "none" }}
+  //     />
+  //   </Space>
+  // );
 
-  const TargetStep = () => (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
-      <Select
-        style={{ width: "100%" }}
-        value={formData.targetType}
-        onChange={(value) => handleInputChange("targetType", value)}
-        options={[
-          { label: "All Platforms", value: "all" },
-          { label: "Topic Subscribers", value: "topic" },
-          { label: "Specific Device", value: "specific" },
-        ]}
-      />
-      {formData.targetType !== "all" && (
-        <TextArea
-          placeholder={
-            formData.targetType === "specific"
-              ? "Enter device token"
-              : 'Enter topic name (e.g., "android", "ios", or "web")'
-          }
-          value={formData.targetValue}
-          onChange={(e) => handleInputChange("targetValue", e.target.value)}
-          rows={4}
-        />
-      )}
-    </Space>
-  );
+  // const TargetStep = () => (
+  //   <Space direction="vertical" size="large" style={{ width: "100%" }}>
+  //     <Select
+  //       style={{ width: "100%" }}
+  //       value={formData.targetType}
+  //       onChange={(value) => handleInputChange("targetType", value)}
+  //       options={[
+  //         { label: "All Platforms", value: "all" },
+  //         { label: "Topic Subscribers", value: "topic" },
+  //         { label: "Specific Device", value: "specific" },
+  //       ]}
+  //     />
+  //     {formData.targetType !== "all" && (
+  //       <TextArea
+  //         placeholder={
+  //           formData.targetType === "specific"
+  //             ? "Enter device token"
+  //             : 'Enter topic name (e.g., "android", "ios", or "web")'
+  //         }
+  //         value={formData.targetValue}
+  //         onChange={(e) => handleInputChange("targetValue", e.target.value)}
+  //         rows={4}
+  //       />
+  //     )}
+  //   </Space>
+  // );
 
-  const SchedulingStep = () => (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
-      <DatePicker
-        showTime
-        style={{ width: "100%" }}
-        placeholder="Select date and time"
-        value={formData.scheduledTime}
-        onChange={(date) => handleInputChange("scheduledTime", date)}
-        disabledDate={(current) => {
-          return current && current < dayjs().startOf("day");
-        }}
-        disabledTime={(date) => {
-          if (date && date.isSame(dayjs(), "day")) {
-            const currentHour = dayjs().hour();
-            const currentMinute = dayjs().minute();
-            return {
-              disabledHours: () =>
-                Array.from({ length: currentHour }, (_, i) => i),
-              disabledMinutes: (selectedHour) =>
-                selectedHour === currentHour
-                  ? Array.from({ length: currentMinute }, (_, i) => i)
-                  : [],
-            };
-          }
-          return {};
-        }}
-        showNow={false}
-      />
-    </Space>
-  );
+  // const SchedulingStep = () => (
+  //   <Space direction="vertical" size="large" style={{ width: "100%" }}>
+  //     <DatePicker
+  //       showTime
+  //       style={{ width: "100%" }}
+  //       placeholder="Select date and time"
+  //       value={formData.scheduledTime}
+  //       onChange={(date) => handleInputChange("scheduledTime", date)}
+  //       disabledDate={(current) => {
+  //         return current && current < dayjs().startOf("day");
+  //       }}
+  //       disabledTime={(date) => {
+  //         if (date && date.isSame(dayjs(), "day")) {
+  //           const currentHour = dayjs().hour();
+  //           const currentMinute = dayjs().minute();
+  //           return {
+  //             disabledHours: () =>
+  //               Array.from({ length: currentHour }, (_, i) => i),
+  //             disabledMinutes: (selectedHour) =>
+  //               selectedHour === currentHour
+  //                 ? Array.from({ length: currentMinute }, (_, i) => i)
+  //                 : [],
+  //           };
+  //         }
+  //         return {};
+  //       }}
+  //       showNow={false}
+  //     />
+  //   </Space>
+  // );
 
   const renderScheduledTime = (time: dayjs.Dayjs | null) => {
     if (!time) return "Not scheduled";
@@ -315,11 +326,26 @@ const NotificationCreate: React.FC = () => {
   const getCurrentStepContent = () => {
     switch (currentStep) {
       case 0:
-        return <NotificationStep />;
+        return (
+          <NotificationStep
+            formData={formData}
+            handleInputChange={handleInputChange}
+          />
+        );
       case 1:
-        return <TargetStep />;
+        return (
+          <TargetStep
+            formData={formData}
+            handleInputChange={handleInputChange}
+          />
+        );
       case 2:
-        return <SchedulingStep />;
+        return (
+          <SchedulingStep
+            formData={formData}
+            handleInputChange={handleInputChange}
+          />
+        );
       default:
         return null;
     }
@@ -348,16 +374,7 @@ const NotificationCreate: React.FC = () => {
       {success && (
         <Alert
           message="Success"
-          description={
-            <div>
-              Notification created successfully!
-              {campaignId && (
-                <div style={{ marginTop: 8 }}>
-                  Notification ID: <Tag color="blue">{campaignId}</Tag>
-                </div>
-              )}
-            </div>
-          }
+          description={<div>Notification created successfully!</div>}
           type="success"
           showIcon
           style={{ marginBottom: 24 }}
