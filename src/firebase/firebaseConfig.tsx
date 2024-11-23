@@ -36,7 +36,7 @@ export const requestForToken = () => {
       }
     })
     .catch((err) => {
-      alert("An error occurred while retrieving token - " + err);
+     
       return null;
     });
 };

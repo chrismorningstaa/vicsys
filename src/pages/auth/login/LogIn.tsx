@@ -73,7 +73,7 @@ export default function LogIn() {
           <FormGroupItems items={formGroupItems} />
 
           <div className="forgot-password">
-            <a href="">Forgot Password?</a>
+            <a href="/forgot-password">Forgot Password?</a>
           </div>
           <Button type="primary" className="w-100" htmlType="submit">
             Login

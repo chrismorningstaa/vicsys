@@ -75,34 +75,15 @@ export default function Sidebar() {
     // },
     {
       label: "Event Booking",
-      key: "8",
+      key: "7",
       icon: <ShoppingCartOutlined />,
       onClick: () => navigate("event-booking"),
     },
     {
       label: "Reports",
-      key: "9",
+      key: "8",
       icon: <FolderOpenOutlined />,
       onClick: () => navigate("reports"),
-    },
-    {
-      label: "Account",
-      key: "sub1",
-      icon: <SettingOutlined />,
-      children: [
-        {
-          label: "Settings",
-          key: "10",
-          icon: <SettingOutlined />,
-          onClick: () => navigate("account-settings"),
-        },
-        {
-          label: "Logout",
-          key: "11",
-          icon: <LogoutOutlined />,
-          onClick: () => handleLogout(),
-        },
-      ],
     },
     {
       label: "Notification",
@@ -111,15 +92,34 @@ export default function Sidebar() {
       children: [
         {
           label: "Create",
-          key: "12",
+          key: "9",
           icon: <ShoppingCartOutlined />,
           onClick: () => navigate("notification/create"),
         },
         {
           label: "View",
-          key: "13",
+          key: "10",
           icon: <EyeOutlined />,
           onClick: () => navigate("notification/view"),
+        },
+      ],
+    },
+    {
+      label: "Account",
+      key: "sub1",
+      icon: <SettingOutlined />,
+      children: [
+        {
+          label: "Settings",
+          key: "11",
+          icon: <SettingOutlined />,
+          onClick: () => navigate("account-settings"),
+        },
+        {
+          label: "Logout",
+          key: "12",
+          icon: <LogoutOutlined />,
+          onClick: () => handleLogout(),
         },
       ],
     },

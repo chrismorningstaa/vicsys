@@ -1,3 +1,4 @@
+import { sendPasswordResetEmail } from "firebase/auth";
 import useUserContext from "../../contexts/useUserContext";
 import {
   IUser,
@@ -71,6 +72,10 @@ export default function accountService() {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    return await sendPasswordResetEmail(auth, email);
+  };
+
   const emailVerification = async () => {
     await _accountRepository.emailVerification();
   };
@@ -101,6 +106,7 @@ export default function accountService() {
     loginWithFacebook,
     getCurrentUser,
     emailVerification,
+    resetPassword,
     signup,
     login,
     logout,

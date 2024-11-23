@@ -23,6 +23,7 @@ import BookingPage from "../private/booking/BookingPage";
 import ReportsPage from "../private/reports/ReportsPage";
 import NotificationCreate from "../private/notification/NotificationForm";
 import ViewNotification from "../private/notification/ViewNotification";
+import ForgotPassword from "../auth/forgotpassword/ForgotPassword";
 
 export default function AppRoute() {
   const { user } = useUserContext();
@@ -37,6 +38,10 @@ export default function AppRoute() {
         {
           path: "signup",
           element: <SignUp />,
+        },
+        {
+          path: "forgot-password",
+          element: <ForgotPassword />,
         },
       ],
     },
