@@ -20,6 +20,7 @@ import Swal from "sweetalert2";
 import ticketCategoryService from "../../../../firebase/services/ticketCategoryService";
 import { useQuery } from "@tanstack/react-query";
 import { Timestamp } from "firebase/firestore";
+import dayjs from "dayjs";
 // import { useQuery } from "@tanstack/react-query";
 // import ticketCategoryService from "../../../../firebase/services/ticketCategoryService";
 // import ITicketCategory from "../../../../interfaces/firebase/ITicketCategory";
@@ -186,6 +187,9 @@ export default function EventSaveModal() {
                 showTime
                 format="MM/DD/YYYY HH:mm A"
                 placeholder={["Start Time", "End Time"]}
+                disabledDate={(current) => {
+                  return current && current < dayjs().startOf("day");
+                }}
               />
             </Form.Item>
           </div>

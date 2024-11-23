@@ -7,29 +7,8 @@ const fetch = require('node-fetch');
 const schedule = require('node-schedule');
 const projectId = 'vicsys-a6039';
 
-
-// const {Storage} = require('@google-cloud/storage');
-
-// async function authenticateImplicitWithAdc() {
-//   const storage = new Storage({
-//     projectId,
-//   });
-//   const [buckets] = await storage.getBuckets();
-//   console.log('Buckets:');
-
-//   for (const bucket of buckets) {
-//     console.log(`- ${bucket.name}`);
-//   }
-
-//   console.log('Listed all storage buckets.');
-// }
-
-// authenticateImplicitWithAdc();
-
-
 const serviceAccount = require("./vicsys-a6039-firebase-adminsdk-cl5si-2b9da741f2.json");
 
-// Initialize Firebase Admin with explicit project ID
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   projectId: projectId
@@ -48,10 +27,19 @@ app.use(cors({
 
 app.use(bodyParser.json());
 
-// Get access token using Firebase Admin
+// Helper function to clean undefined values from an object
+function cleanUndefinedValues(obj) {
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+}
+
 async function getAccessToken() {
   try {
-    // Use the correct method to get access token
     const accessToken = await admin.app().options.credential.getAccessToken();
     console.log('Successfully obtained access token');
     return accessToken.access_token;
@@ -62,14 +50,15 @@ async function getAccessToken() {
 }
 
 async function scheduleNotification(campaignData, scheduledFor) {
-  // Create a scheduled job
+  // Clean the campaign data before saving
+  const cleanedData = cleanUndefinedValues(campaignData);
+  
   schedule.scheduleJob(new Date(scheduledFor), async () => {
     try {
-      await createCampaign(campaignData);
+      await createCampaign(cleanedData);
       
-      // Update the campaign status in Firestore
       await db.collection('notificationCampaigns')
-        .doc(campaignData.campaignId)
+        .doc(cleanedData.campaignId)
         .update({
           status: 'sent',
           sentAt: admin.firestore.FieldValue.serverTimestamp()
@@ -77,9 +66,8 @@ async function scheduleNotification(campaignData, scheduledFor) {
     } catch (error) {
       console.error('Error sending scheduled notification:', error);
       
-      // Update campaign status to failed
       await db.collection('notificationCampaigns')
-        .doc(campaignData.campaignId)
+        .doc(cleanedData.campaignId)
         .update({
           status: 'failed',
           error: error.message
@@ -87,9 +75,8 @@ async function scheduleNotification(campaignData, scheduledFor) {
     }
   });
 
-  // Save initial campaign data to Firestore
   const campaign = {
-    ...campaignData,
+    ...cleanedData,
     status: 'scheduled',
     scheduledFor: admin.firestore.Timestamp.fromDate(new Date(scheduledFor)),
     createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -99,30 +86,26 @@ async function scheduleNotification(campaignData, scheduledFor) {
   return docRef.id;
 }
 
-// Backend: Update your createCampaign function
 async function createCampaign(campaignData) {
   try {
     const accessToken = await getAccessToken();
     const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
     
-    // Base message structure with cross-platform notification
     const message = {
       message: {
         notification: {
           title: campaignData.title,
           body: campaignData.body
         },
-        // Android specific config
         android: {
           notification: {
             title: campaignData.title,
             body: campaignData.body,
             icon: '@mipmap/ic_launcher',
-            color: '#FF0000', // Customize with your app's color
+            color: '#FF0000',
             clickAction: 'FLUTTER_NOTIFICATION_CLICK'
           }
         },
-        // iOS specific config
         apns: {
           payload: {
             aps: {
@@ -135,17 +118,16 @@ async function createCampaign(campaignData) {
             }
           }
         },
-        // Web specific config
         webpush: {
           notification: {
             title: campaignData.title,
             body: campaignData.body,
-            icon: '/firebase-logo.png', // Update with your web app icon
-            badge: '/badge-icon.png',   // Update with your badge icon
-            click_action: 'https://your-web-app-url.com' // Update with your web app URL
+            icon: '/firebase-logo.png',
+            badge: '/badge-icon.png',
+            click_action: 'https://your-web-app-url.com'
           },
           fcm_options: {
-            link: 'https://your-web-app-url.com' // Update with your web app URL
+            link: 'https://your-web-app-url.com'
           }
         }
       }
@@ -201,17 +183,22 @@ async function createCampaign(campaignData) {
 
 async function saveCampaignToFirestore(campaignData, fcmResponse) {
   try {
-    const campaignRef = db.collection('notificationCampaigns');
-    
-    const campaign = {
+    // Clean the data before saving to Firestore
+    const cleanedData = cleanUndefinedValues({
       ...campaignData,
       status: 'sent',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
-      fcmResponse: fcmResponse,
-    };
+      fcmResponse: fcmResponse
+    });
 
-    const docRef = await campaignRef.add(campaign);
+    // For "all" target type, ensure targetValue is not undefined
+    if (cleanedData.targetType === 'all' && !cleanedData.targetValue) {
+      cleanedData.targetValue = 'all';
+    }
+
+    const campaignRef = db.collection('notificationCampaigns');
+    const docRef = await campaignRef.add(cleanedData);
     console.log('Campaign saved to Firestore with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -228,22 +215,20 @@ app.post("/send-notification", async (req, res) => {
       return res.status(400).json({ error: "Title and body are required" });
     }
 
-    const campaignData = {
+    const campaignData = cleanUndefinedValues({
       title,
       body,
       targetType,
-      targetValue,
-    };
+      targetValue: targetType === 'all' ? 'all' : targetValue
+    });
 
     let response;
     let campaignId;
 
     if (scheduledFor) {
-      // Handle scheduled notification
       campaignId = await scheduleNotification(campaignData, scheduledFor);
       response = { scheduled: true, scheduledFor };
     } else {
-      // Handle immediate notification
       response = await createCampaign(campaignData);
       campaignId = await saveCampaignToFirestore(campaignData, response);
     }
