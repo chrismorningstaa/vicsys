@@ -1,53 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Table, 
-  Card, 
-  Button, 
-  Space, 
-  Modal, 
-  message, 
-  Popconfirm, 
-  Tag, 
-  Typography 
-} from 'antd';
-import { DeleteOutlined, EyeOutlined } from '@ant-design/icons';
-import { db } from '../../../firebase/firebaseConfig';
-import { 
-  collection, 
-  query, 
-  orderBy, 
-  getDocs, 
+import React, { useState, useEffect } from "react";
+import {
+  Table,
+  Card,
+  Button,
+  Space,
+  Modal,
+  message,
+  Popconfirm,
+  Tag,
+  Typography,
+} from "antd";
+import { DeleteOutlined, EyeOutlined } from "@ant-design/icons";
+import { db } from "../../../firebase/firebaseConfig";
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
   deleteDoc,
   doc,
-  updateDoc
-} from 'firebase/firestore';
-import dayjs from 'dayjs';
+  updateDoc,
+} from "firebase/firestore";
+import dayjs from "dayjs";
 
 const { Text } = Typography;
 
 interface StatusColors {
-  sent: 'success';
-  failed: 'error';
-  scheduled: 'warning';
+  sent: "success";
+  failed: "error";
+  scheduled: "warning";
 }
 
 const statusColors: StatusColors = {
-  sent: 'success',
-  failed: 'error',
-  scheduled: 'warning'
+  sent: "success",
+  failed: "error",
+  scheduled: "warning",
 } as const;
 
 type NotificationStatus = keyof typeof statusColors;
 
 const isValidStatus = (status: string): status is NotificationStatus => {
-  return status === 'sent' || status === 'failed' || status === 'scheduled';
+  return status === "sent" || status === "failed" || status === "scheduled";
 };
 
 interface NotificationData {
   id: string;
   title: string;
   body: string;
-  targetType: 'all' | 'specific' | 'topic';
+  targetType: "all" | "specific" | "topic";
   targetValue: string;
   status: NotificationStatus;
   createdAt: any; // Firestore Timestamp
@@ -62,25 +62,27 @@ const ViewNotification: React.FC = () => {
     notification: NotificationData | null;
   }>({
     visible: false,
-    notification: null
+    notification: null,
   });
 
   // Check and update scheduled notifications
-  const updateScheduledNotifications = async (notifications: NotificationData[]) => {
+  const updateScheduledNotifications = async (
+    notifications: NotificationData[]
+  ) => {
     const currentTime = new Date();
-    
+
     for (const notification of notifications) {
-      if (notification.status === 'scheduled' && notification.scheduledTime) {
+      if (notification.status === "scheduled" && notification.scheduledTime) {
         const scheduledTime = notification.scheduledTime.toDate();
-        
+
         if (currentTime >= scheduledTime) {
           try {
             // Update the notification status in Firestore
-            await updateDoc(doc(db, 'notificationCampaigns', notification.id), {
-              status: 'sent'
+            await updateDoc(doc(db, "notificationCampaigns", notification.id), {
+              status: "sent",
             });
           } catch (error) {
-            console.error('Error updating notification status:', error);
+            console.error("Error updating notification status:", error);
           }
         }
       }
@@ -91,29 +93,29 @@ const ViewNotification: React.FC = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const notificationsRef = collection(db, 'notificationCampaigns');
-      const q = query(notificationsRef, orderBy('createdAt', 'desc'));
+      const notificationsRef = collection(db, "notificationCampaigns");
+      const q = query(notificationsRef, orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
-      
-      const notificationData = querySnapshot.docs.map(doc => ({
+
+      const notificationData = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as NotificationData[];
 
       // Update scheduled notifications if needed
       await updateScheduledNotifications(notificationData);
-      
+
       // Fetch the updated data
       const updatedQuerySnapshot = await getDocs(q);
-      const updatedNotificationData = updatedQuerySnapshot.docs.map(doc => ({
+      const updatedNotificationData = updatedQuerySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as NotificationData[];
 
       setNotifications(updatedNotificationData);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      message.error('Failed to fetch notifications');
+      console.error("Error fetching notifications:", error);
+      message.error("Failed to fetch notifications");
     } finally {
       setLoading(false);
     }
@@ -121,7 +123,7 @@ const ViewNotification: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-    
+
     // Set up an interval to check scheduled notifications every minute
     const interval = setInterval(() => {
       fetchNotifications();
@@ -133,23 +135,23 @@ const ViewNotification: React.FC = () => {
   // Handle notification deletion
   const handleDelete = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'notificationCampaigns', id));
-      message.success('Notification deleted successfully');
+      await deleteDoc(doc(db, "notificationCampaigns", id));
+      message.success("Notification deleted successfully");
       fetchNotifications(); // Refresh the list
     } catch (error) {
-      console.error('Error deleting notification:', error);
-      message.error('Failed to delete notification');
+      console.error("Error deleting notification:", error);
+      message.error("Failed to delete notification");
     }
   };
 
   // Format target information
   const formatTarget = (targetType: string, targetValue: string) => {
     switch (targetType) {
-      case 'all':
+      case "all":
         return <Tag color="blue">All Users</Tag>;
-      case 'topic':
+      case "topic":
         return <Tag color="green">Topic: {targetValue}</Tag>;
-      case 'specific':
+      case "specific":
         return <Tag color="orange">Specific Device</Tag>;
       default:
         return <Tag color="default">Unknown</Tag>;
@@ -163,15 +165,17 @@ const ViewNotification: React.FC = () => {
     }
     return <Tag color="default">{status.toUpperCase()}</Tag>;
   };
-  
+
   const columns = [
     {
-      title: 'Date and Time',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
+      title: "Date and Time",
+      dataIndex: "createdAt",
+      key: "createdAt",
       render: (createdAt: any) => {
-        const date = createdAt?.toDate ? createdAt.toDate() : new Date(createdAt);
-        return dayjs(date).format('YYYY-MM-DD HH:mm:ss');
+        const date = createdAt?.toDate
+          ? createdAt.toDate()
+          : new Date(createdAt);
+        return dayjs(date).format("YYYY-MM-DD HH:mm:ss");
       },
       sorter: (a: NotificationData, b: NotificationData) => {
         const dateA = new Date(a.createdAt?.toDate()).getTime();
@@ -180,35 +184,36 @@ const ViewNotification: React.FC = () => {
       },
     },
     {
-      title: 'Content',
-      dataIndex: 'body',
-      key: 'body',
+      title: "Content",
+      dataIndex: "body",
+      key: "body",
       render: (text: string) => (
-        <Text ellipsis={{ tooltip: text }}>
-          {text}
-        </Text>
+        <Text ellipsis={{ tooltip: text }}>{text}</Text>
       ),
     },
     {
-      title: 'Target',
-      key: 'target',
-      render: (record: NotificationData) => formatTarget(record.targetType, record.targetValue),
+      title: "Target",
+      key: "target",
+      render: (record: NotificationData) =>
+        formatTarget(record.targetType, record.targetValue),
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
       render: (status: string) => getStatusTag(status),
     },
     {
-      title: 'Action',
-      key: 'action',
+      title: "Action",
+      key: "action",
       render: (record: NotificationData) => (
         <Space size="middle">
-          <Button 
-            type="text" 
+          <Button
+            type="text"
             icon={<EyeOutlined />}
-            onClick={() => setPreviewModal({ visible: true, notification: record })}
+            onClick={() =>
+              setPreviewModal({ visible: true, notification: record })
+            }
           />
           <Popconfirm
             title="Delete this notification?"
@@ -217,11 +222,7 @@ const ViewNotification: React.FC = () => {
             okText="Yes"
             cancelText="No"
           >
-            <Button 
-              type="text" 
-              danger 
-              icon={<DeleteOutlined />}
-            />
+            <Button type="text" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
       ),
@@ -230,15 +231,15 @@ const ViewNotification: React.FC = () => {
 
   return (
     <Card title="Notification History">
-      <Table 
-        columns={columns} 
-        dataSource={notifications} 
+      <Table
+        columns={columns}
+        dataSource={notifications}
         rowKey="id"
         loading={loading}
-        pagination={{ 
+        pagination={{
           pageSize: 10,
           showSizeChanger: true,
-          showTotal: (total) => `Total ${total} notifications`
+          showTotal: (total) => `Total ${total} notifications`,
         }}
       />
 
@@ -247,37 +248,37 @@ const ViewNotification: React.FC = () => {
         open={previewModal.visible}
         onCancel={() => setPreviewModal({ visible: false, notification: null })}
         footer={[
-          <Button 
-            key="close" 
-            onClick={() => setPreviewModal({ visible: false, notification: null })}
+          <Button
+            key="close"
+            onClick={() =>
+              setPreviewModal({ visible: false, notification: null })
+            }
           >
             Close
-          </Button>
+          </Button>,
         ]}
       >
         {previewModal.notification && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space direction="vertical" style={{ width: "100%" }}>
             <Card>
               <Space direction="vertical">
                 <Text strong>Title:</Text>
                 <Text>{previewModal.notification.title}</Text>
-                
+
                 <Text strong>Content:</Text>
                 <Text>{previewModal.notification.body}</Text>
-                
+
                 <Text strong>Target:</Text>
                 {formatTarget(
-                  previewModal.notification.targetType, 
+                  previewModal.notification.targetType,
                   previewModal.notification.targetValue
                 )}
-                
+
                 <Text strong>Status:</Text>
                 {getStatusTag(previewModal.notification.status)}
-                
+
                 <Text strong>Created At:</Text>
-                <Text>
-                  {dayjs(previewModal.notification.createdAt?.toDate()).format('YYYY-MM-DD HH:mm:ss')}
-                </Text>
+                <Text>{previewModal.notification.createdAt}</Text>
               </Space>
             </Card>
           </Space>
