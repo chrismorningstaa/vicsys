@@ -92,6 +92,7 @@ export default function BookingKidsModal(props: {
           gcashRefNo: gcashRefNo,
           startTime: selectedEvent.startTime,
           endTime: selectedEvent.endTime,
+          ticketCategoryId: selectedEvent.ticketCategoryId,
         };
 
         const updatedUser: INonTechUser = {
@@ -119,6 +120,7 @@ export default function BookingKidsModal(props: {
           gcashRefNo: gcashRefNo,
           startTime: selectedEvent.startTime,
           endTime: selectedEvent.endTime,
+          ticketCategoryId: selectedEvent.ticketCategoryId
         };
 
         const updatedUser = {

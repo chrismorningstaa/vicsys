@@ -17,6 +17,7 @@ export interface IEvent {
   image: string;
   venue: string;
   ticketCategories: ITicketCategory[];
+  ticketCategoryId: string,
   attendees: IAttendee[];
   childrenAttendees: IChildAttendee[];
   isForKids: boolean;

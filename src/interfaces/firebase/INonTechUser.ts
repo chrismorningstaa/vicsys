@@ -11,6 +11,7 @@ export interface IMyPuchaseEvent {
   ticketId?: string;
   ticketName: string;
   gcashRefNo?: string;
+  ticketCategoryId: string,
 }
 
 export interface INonTechUser {
