@@ -20,11 +20,14 @@ export default function bookingService() {
     nonTectUserId: string,
     myPurchases: IMyPuchaseEvent[]
   ) => {
+    console.log(userId, eventId);
     const event = await _eventRepository.getById(eventId);
     let user;
     if (userId) user = await _userRepository.getById(userId);
     if (nonTectUserId)
       user = await _nonTechUserRepository.getById(nonTectUserId);
+
+    console.log(event, user);
     if (!event || !user) throw new Error("Event or user not found");
 
     const updatedTicketCategories = event.ticketCategories.map((t) => ({

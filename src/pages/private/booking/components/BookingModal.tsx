@@ -37,11 +37,16 @@ export default function BookingModal(props: {
     []
   );
   const [form] = Form.useForm();
-  const handleAddPurchase = (ticketName: string, price: number) => {
+  const handleAddPurchase = (
+    ticketName: string,
+    price: number,
+    ticketCatId: string
+  ) => {
     setPurchaseTotalPrice((prev) => prev + price);
     setMyPurchase((prev) => [
       ...prev,
       {
+        ticketCategoryId: ticketCatId,
         eventId: selectedEvent.id ?? "",
         imageUrl: selectedEvent.image,
         isPaid: false,
@@ -199,7 +204,11 @@ export default function BookingModal(props: {
                   size="small"
                   //   shape="round"
                   onClick={() => {
-                    handleAddPurchase(ticket.ticketName, ticket.ticketPrice);
+                    handleAddPurchase(
+                      ticket.ticketName,
+                      ticket.ticketPrice,
+                      ticket?.ticketCategoryId ?? ""
+                    );
                   }}
                   icon={<PlusOutlined />}
                   disabled={handleIsDisabledAddTicketCount(ticket)}

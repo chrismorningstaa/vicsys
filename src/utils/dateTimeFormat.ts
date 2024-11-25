@@ -11,6 +11,9 @@ export const convertUnixToDateText = (date: any): string => {
     hour12: true,
   });
 };
+export const convertUnixToDateOnlyText = (date: any): string => {
+  return moment(date?.seconds * 1000).format("YYYY-MM-DDThh:mm");
+};
 export const convertUnixToTimeText = (date: any): string => {
   return new Date(date?.seconds * 1000).toLocaleString("en-US", {
     hour: "numeric",

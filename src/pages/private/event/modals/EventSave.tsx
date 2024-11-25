@@ -11,21 +11,16 @@ import {
 } from "antd";
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import useEventContext from "../useEventContext";
-import { useEffect } from "react";
-import { convertUnixToDate } from "../../../../utils/dateTimeFormat";
+import { useEffect, useState } from "react";
+import { convertUnixToDateOnlyText } from "../../../../utils/dateTimeFormat";
 import EventImageUpload from "../components/EventImageUpload";
 import { IEventSave } from "../../../../interfaces/firebase/IEvent";
 import eventService from "../../../../firebase/services/eventService";
 import Swal from "sweetalert2";
 import ticketCategoryService from "../../../../firebase/services/ticketCategoryService";
 import { useQuery } from "@tanstack/react-query";
-import { Timestamp } from "firebase/firestore";
-import dayjs from "dayjs";
-// import { useQuery } from "@tanstack/react-query";
-// import ticketCategoryService from "../../../../firebase/services/ticketCategoryService";
-// import ITicketCategory from "../../../../interfaces/firebase/ITicketCategory";
+
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 export default function EventSaveModal() {
   const {
     isSaveModalOpen,
@@ -39,19 +34,35 @@ export default function EventSaveModal() {
   const _eventService = eventService();
   const _ticketCategoryService = ticketCategoryService();
   const [form] = Form.useForm();
-
+  const [startTime, setStartTime] = useState("");
   const { data: ticketCategories } = useQuery({
     queryKey: ["ticketCategories"],
     queryFn: _ticketCategoryService.getAll,
   });
+  const handleStartTimeChange = (e: any) => {
+    const newStartTime = e.target.value;
+    setStartTime(newStartTime);
+
+    // Get current end time value
+    const endTime = form.getFieldValue("endTime");
+
+    // If end time exists and is less than or equal to new start time, clear end time
+    if (endTime && new Date(endTime) <= new Date(newStartTime)) {
+      form.setFieldValue("endTime", "");
+    }
+  };
+  const getMinEndTime = () => {
+    if (!startTime) return "";
+    const startDate = new Date(startTime);
+    startDate.setMinutes(startDate.getMinutes() + 1);
+    return startDate.toISOString().slice(0, 16);
+  };
+
   const onFinish = async (values: any) => {
     try {
-      const [startTime, endTime] = values.eventDuration || [];
       const { eventDuration, ...rest } = values;
       const formattedValues: IEventSave = {
         ...rest,
-        startTime: startTime ?? null,
-        endTime: endTime ?? null,
         image: imageUpload ?? values.image,
       };
       form.validateFields();
@@ -84,22 +95,18 @@ export default function EventSaveModal() {
     if (selectedEvent) {
       const formattedValues = {
         ...selectedEvent,
-        eventDuration: [
-          selectedEvent.startTime
-            ? convertUnixToDate(selectedEvent.startTime)
-            : null,
-          selectedEvent.endTime
-            ? convertUnixToDate(selectedEvent.endTime)
-            : null,
-        ],
+        startTime: convertUnixToDateOnlyText(selectedEvent.startTime),
+        endTime: convertUnixToDateOnlyText(selectedEvent.endTime),
       };
+      setStartTime(convertUnixToDateOnlyText(selectedEvent.startTime));
       form.setFieldsValue(formattedValues);
       return;
     }
     form.setFieldsValue({
       eventName: "",
       description: "",
-      eventDuration: [],
+      startTime: "",
+      endTime: "",
       image: "",
       venue: "",
       ticketCategories: [],
@@ -174,22 +181,37 @@ export default function EventSaveModal() {
           <div className="d-flex gap-2">
             {/* Start Time */}
             <Form.Item
-              label="Event Duration"
-              name="eventDuration"
+              label="Start time"
+              name="startTime"
               rules={[
                 {
                   required: true,
-                  message: "Please select the event duration!",
+                  message: "Please select the start time duration!",
                 },
               ]}
             >
-              <RangePicker
-                showTime
-                format="MM/DD/YYYY HH:mm A"
-                placeholder={["Start Time", "End Time"]}
-                disabledDate={(current) => {
-                  return current && current < dayjs().startOf("day");
-                }}
+              <input
+                type="datetime-local"
+                className="ant-input"
+                style={{ width: "100%", padding: "4px 11px" }}
+                onChange={handleStartTimeChange}
+              />
+            </Form.Item>
+            <Form.Item
+              label="End time"
+              name="endTime"
+              rules={[
+                {
+                  required: true,
+                  message: "Please select the end time duration!",
+                },
+              ]}
+            >
+              <input
+                type="datetime-local"
+                className="ant-input"
+                style={{ width: "100%", padding: "4px 11px" }}
+                min={getMinEndTime()}
               />
             </Form.Item>
           </div>
