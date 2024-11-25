@@ -1,6 +1,7 @@
 import { TicketStatus } from "./ITicket";
 
 export interface IMyPuchaseEvent {
+  ticketCategoryId?: string;
   eventId: string;
   imageUrl: string;
   isPaid: boolean;

@@ -107,7 +107,6 @@ export default function eventRepository() {
     if (!user) {
       user = await _nonTechUserRepository.getById(userId);
     }
-    console.log(user);
     if (!user?.myPurchaseEvents)
       throw new Error("user has no myPurchaseEvents");
     const userPurchased = user?.myPurchaseEvents.find(
@@ -119,13 +118,19 @@ export default function eventRepository() {
     if (!event?.id) throw new Error("event is not found");
 
     const updatetedTcketCategories = event.ticketCategories.map((t) => {
-      if (t.ticketName == myPurchase.ticketName)
+      console.log(t.ticketCategoryId, myPurchase.ticketCategoryId);
+      if (t.ticketCategoryId === myPurchase.ticketCategoryId) {
+        const soldChange = handleTicketSold(
+          userPurchased.status,
+          myPurchase.status
+        );
+        console.log("Ticket sold change:", soldChange);
+
         return {
           ...t,
-          ticketSold:
-            t.ticketSold +
-            handleTicketSold(userPurchased.status, myPurchase.status),
+          ticketSold: t.ticketSold + soldChange,
         };
+      }
       return t;
     });
     await _genericRepository.update(event?.id, {
@@ -137,19 +142,26 @@ export default function eventRepository() {
   const handleTicketSold = (
     currentStatus: TicketStatus,
     newStatus: TicketStatus
-  ) => {
+  ): number => {
+    console.log("HandleTicketSold - Current status:", currentStatus);
+    console.log("HandleTicketSold - New status:", newStatus);
+
     if (
-      currentStatus != TicketStatus.Pending &&
-      currentStatus != TicketStatus.Declined &&
-      (newStatus == TicketStatus.Pending || newStatus == TicketStatus.Declined)
-    )
+      currentStatus !== TicketStatus.Pending && // Changed != to !==
+      currentStatus !== TicketStatus.Declined && // Changed != to !==
+      (newStatus === TicketStatus.Pending ||
+        newStatus === TicketStatus.Declined)
+    ) {
       return -1;
+    }
+
     if (
-      (currentStatus == TicketStatus.Pending ||
-        currentStatus == TicketStatus.Declined) &&
-      (newStatus == TicketStatus.Completed || newStatus == TicketStatus.Paid)
-    )
-      return +1;
+      (currentStatus === TicketStatus.Pending ||
+        currentStatus === TicketStatus.Declined) &&
+      (newStatus === TicketStatus.Completed || newStatus === TicketStatus.Paid)
+    ) {
+      return 1;
+    }
 
     return 0;
   };
